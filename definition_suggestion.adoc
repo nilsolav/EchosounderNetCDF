@@ -1,0 +1,43 @@
+Suggest that the data structure below is stored in a sub-group with the name /Interpretation. This can be placed under the appropriate BeamGroup as a way to associate the region definitions with particular acoustic data.
+
+|===========================================================================================================================================================
+|Description|Attributes|Comment
+|*Types* | |
+| byte enum region_t {empty_water = 0, no_data = 1, analysis = 2, track = 3, marker = 4}| |
+| uint64(*) time_t | | Variable length vector that stores the time for each mask point 
+|  |:units = "nanoseconds since 1601-01-01 00:00:00Z" |
+|  |:axis =  "T"|
+|  |:calendar = "gregorian"|
+|  |:standard_name = "time"|
+| float(*) depth_t | | Variable length vector that stores the depths for each time of a mask
+| |:units = "m"|
+|*Dimensions* | |
+|regions = unlimited | | Can be of fixed or unlimited length, as appropriate.
+|*Coordinate variables* | |
+|float min_depth(regions) | | Part of the bounding box of the region.
+|  |:long_name = "Minimum depth for each region" | 
+|  |:units = "m" |
+|float max_depth(regions) | | Part of the bounding box of the region.
+|  |:long_name = "Max depth for each region" | 
+|  |:units = "m" |
+|uint64 start_time(regions) | | Part of the bounding box of the region.
+|  |:long_name = "Timestamp of the earliest in each region" | 
+|  |:units = "nanoseconds since 1601-01-01 00:00:00Z" |
+|  |:axis =  "T"|
+|  |:calendar = "gregorian"|
+|  |:standard_name = "time"|
+|uint64 end_time(regions) | | Part of the bounding box of the region.
+|  |:long_name = "Timestamp of the latest in each region" | 
+|  |:units = "nanoseconds since 1601-01-01 00:00:00Z" |
+|  |:axis =  "T"|
+|  |:calendar = "gregorian"|
+|  |:standard_name = "time"|
+|int region_id(regions) | |
+|  |:long_name = "ID number for each region" | 
+|*Variables* | |
+|string comment(regions) | |Comment for each region (can contain empty strings) 
+|string category(regions) | |Category for each region (can contain empty strings) 
+|region_t region_type(regions) | |The type of this region 
+|time_t mask_times(regions) | |Ragged array that stores the region mask times. 
+|depth_t mask_depths(regions, unlimited) | |Ragged array that stores the region depths. Odd-numbered columns contain a start depth, and even numbered colums an end depth. Total number of columns must always be even.
+|===========================================================================================================================================================
