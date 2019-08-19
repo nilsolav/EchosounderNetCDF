@@ -17,6 +17,12 @@ group: Interpretation {
 	dimensions:
 		regions = 3; // could also be unlimited
 	variables:
+		float sound_speed;
+			sound_speed:long_name = "Sound speed used to convert echo time into range";
+			sound_speed:standard_name = "speed_of_sound_in_sea_water";
+			sound_speed:units = "m/s";
+			sound_speed:valid_min = 0.0;
+				
 		float min_depth(regions);
 			min_depth:long_name = "Minimum depth for each region";
 			min_depth:units = "m";
@@ -64,6 +70,7 @@ group: Interpretation {
 	
 	data:
 	    // simple example regions
+		sound_speed = 1496;
 		min_depth =  0.0, 20.5, 55.0;
 		max_depth = 10.0, 42.0, 125.2;
 		start_time = 13210680841000, 13210680843000, 13210680845000;
