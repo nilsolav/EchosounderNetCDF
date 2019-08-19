@@ -43,3 +43,5 @@ set(gca, 'Ydir', 'reverse')
 xlabel(['Time (' time_units ')'])
 ylabel(['Depth (' depth_units ')'])
 
+print('demo_mask.png', '-dpng', '-r300')
+
