@@ -11,15 +11,16 @@ netcdf mask {
     :title = "Echogram scrutiny masks";
 	
 group: Interpretation {
-	group: v001 { // subsequent versions of this interpretation get put in new subgroups, using the numbering system v001, v002, etc.
+	group: v1 { // subsequent versions of this interpretation get put in new subgroups, using the numbering system v1, v2, etc.
 		// SUGGESTIONS OF THINGS TO ADD:
 		// - consider a separate implementation of layers, as per LSSS
 		// - link to categorisation database and database version
 		// - name of echosounder files that the data came from??
 		
-		:version = "1";
-		:version_date = "20190903T154023Z";
+		:version = "1"; // increasing integers
+		:version_save_date = "20190903T154023Z"; // ISO8601 format
 		:version_author = "GJM";
+		:version_comment = "Initial scrutiny";
 		
 		types:
 			// Note: empty_water == LSSS erased; no_data == LSSS excluded

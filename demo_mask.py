@@ -16,7 +16,7 @@ filename = 'demo_mask.nc'
 dataset = Dataset(filename)
 
 #Open the group where the data is located
-interp = dataset.groups['Interpretation'].groups['v001']
+interp = dataset.groups['Interpretation'].groups['v1']
 
 # Get some variables and attributes
 t = interp.variables['mask_times'][:]
