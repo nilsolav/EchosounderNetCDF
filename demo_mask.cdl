@@ -26,6 +26,7 @@ group: Interpretation {
 	dimensions:
 		regions = 3; // varies to suit data. Could also be unlimited
 		channels = 3; // varies to suit data
+		region_categorisation = 5; // varies to suit data. Could also be unlimited.
 	variables:
 		float sound_speed;
 			sound_speed:long_name = "Sound speed used to convert echo time into range";
@@ -66,8 +67,16 @@ group: Interpretation {
 			provenance:long_name = "Provenance of each region"; 
 		string comment(regions);
 			comment:long_name = "Comment for each region";
-		string category(regions);
-			category:long_name = "Categorisation for each region";
+			
+		// This categorisation structure allows for multiple categories per region, as needed by LSSS.
+		string category_category(region_categorisation);
+			category_category:long_name = "Categorisation";
+		int category_region_id(region_categorisation);
+			category_region_id:long_name = "Region id to which the categorisation and proportion applies";
+		float category_proportion(region_categorisation);
+			category_proportion:long_name = "Proportion of this categorisation";
+			category_proportion:value_range = 0.0, 1.0;
+		
 		region_t region_type(regions);
 			region_type:long_name = "Region type";
 		
@@ -101,7 +110,9 @@ group: Interpretation {
 		name = "region1", "region2", "";
 		provenance = "KORONA-2.6.0;LSSS", "Echoview - template ABC", "Manual inspection";
 		comment = "", "", "whale!";
-		category = "herring", "", "whale";
+		category_category = "herring", "krill", "", "whale", "dolphin";
+		category_region_id = 1, 1, 5, 234, 234;
+		category_proportion = 0.9, 0.1, 1.0, 0.45, 0.40;
 		region_type = analysis, empty_water, analysis;
 		channel_names = "18kHz WBT ABC", "38kHz WBT ZYX", "120kHz GPT 123";
 		region_channels = 5, 7, 7;

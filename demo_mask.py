@@ -33,7 +33,6 @@ bb_lower = interp.variables['max_depth'][:]
 bb_left = interp.variables['start_time'][:]
 bb_right = interp.variables['end_time'][:]
 
-category = interp.variables['category'][:]
 region_id = interp.variables['id'][:]
 
 #close dataset
@@ -52,7 +51,7 @@ for i, junk in enumerate(bb_upper):
     plt.plot(np.array([bb_left[i], bb_right[i], bb_right[i], bb_left[i], bb_left[i]]), 
              np.array([bb_lower[i], bb_lower[i], bb_upper[i], bb_upper[i], bb_lower[i]]),
              color=(0.5, 0.5, 0.5))
-    plt.text(bb_left[i], bb_upper[i], 'ID: ' + str(region_id[i]) + ' (' + category[i] + ')', 
+    plt.text(bb_left[i], bb_upper[i], 'ID: ' + str(region_id[i]), 
              bbox=dict(facecolor=(0.5, 0.5, 0.5), alpha=0.5))
 plt.title('Using c= ' + str(c) + ' ' + c_units)
 ax = plt.gca()
