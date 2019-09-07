@@ -39,17 +39,17 @@ group: Interpretation {
 				sound_speed:long_name = "Sound speed used to convert echo time into range";
 				sound_speed:standard_name = "speed_of_sound_in_sea_water";
 				sound_speed:units = "m/s";
-				sound_speed:valid_min = 0.0;
+				sound_speed:valid_min = 0.0f;
 
 			// The bounding box of each region
 			float min_depth(regions);
 				min_depth:long_name = "Minimum depth for each region";
 				min_depth:units = "m";
-				min_depth:valid_min = 0.0;
+				min_depth:valid_min = 0.0f;
 			float max_depth(regions);
 				max_depth:long_name = "Maximum depth for each regions";
 				max_depth:units = "m";
-				max_depth:valid_min = 0.0;
+				max_depth:valid_min = 0.0f;
 			uint64 start_time(regions);
 				start_time:long_name = "Timestamp of the earliest data point in each region";
 				start_time:units = "milliseconds since 1601-01-01 00:00:00Z";
@@ -86,7 +86,7 @@ group: Interpretation {
 				category_region_id:long_name = "Region id to which the categorisation and proportion applies";
 			float category_proportion(region_categorisation);
 				category_proportion:long_name = "Proportion of this categorisation";
-				category_proportion:value_range = 0.0, 1.0;
+				category_proportion:value_range = 0.0f, 1.0f;
 			
 			region_t region_type(regions);
 				region_type:long_name = "Region type";
@@ -108,7 +108,7 @@ group: Interpretation {
 			mask_depths_t mask_depths(regions);
 				mask_depths:long_name = "Depth pairs of mask";
 				mask_depths:units = "m";
-				mask_depths:valid_min = 0.0;
+				mask_depths:valid_min = 0.0f;
 
 		data:
 			// simple example regions
