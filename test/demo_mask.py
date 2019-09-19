@@ -42,6 +42,14 @@ with h5py.File(filename, 'r') as f:
     r_type_name = [r_type_enum[i] for i in r_type]
     
     
+    cat = interp['category']
+    prop = interp['proportion']
+    
+    for i, r in enumerate(d):
+        print('Region ' + str(region_id[i]) + ' has categories '
+              #+ cat[i] # causes python to crash...
+              + ' with proportions ' + str(prop[i]))
+    
     #Plot the power of beam
     plt.figure(1)
     plt.clf()
