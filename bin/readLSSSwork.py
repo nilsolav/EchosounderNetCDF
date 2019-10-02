@@ -14,7 +14,7 @@ def readLSSSwork(nc_raw_file,work_file):
     import numpy as np
     import xmltodict
     from datetime import datetime
-    from scipy.spatial import Delaunay
+#    from scipy.spatial import Delaunay
     
     
     
@@ -47,7 +47,7 @@ def readLSSSwork(nc_raw_file,work_file):
     #TODO: 
     #    investigate in how to make this function independent of the raw data
     ref_time = inn.groups['Sonar'].groups['Beam_group2'].variables['ping_time'][:].data/1e9
-    dept_ref = np.arange(len(inn.groups['Sonar'].groups['Beam_group2'].variables['Power'][0]))*(inn.groups['Sonar'].groups['Beam_group2'].variables['sample_interval'][0]*1490/2)
+    dept_ref = np.arange(len(inn.groups['Sonar'].groups['Beam_group2'].variables['backscatter_r'][0]))*(inn.groups['Sonar'].groups['Beam_group2'].variables['sample_interval'][0]*1490/2)
 #    sample_space = (inn.groups['Sonar'].groups['Beam_group2'].variables['sample_interval'][0]*1490/2)
 
 
@@ -97,14 +97,10 @@ def readLSSSwork(nc_raw_file,work_file):
                 
                 #Grab ping number and depth 
                 Ping = np.arange(np.argmin(abs(second_since_epoch-ref_time)),(np.argmin(abs(second_since_epoch-ref_time))+numberOfPings))
-#                Depth = np.hstack((np.zeros((len(Ping))),np.nanmax(dept_ref)*np.ones((len(Ping)))))
                 
                 
-#                print(len(Depth))
-#                print(len(Ping))
                 
                 #Do some modification, so it will look nice when plotting
-#                Ping = np.hstack((Ping,np.flip(Ping)))
                 ping_=[]
                 Depth = []
                 for ping in Ping: 
@@ -143,12 +139,10 @@ def readLSSSwork(nc_raw_file,work_file):
             
             #Grab ping number and depth 
             Ping = np.arange(np.argmin(abs(second_since_epoch-ref_time)),(np.argmin(abs(second_since_epoch-ref_time))+numberOfPings))
-#            Depth = np.hstack((np.zeros((len(Ping))),np.nanmax(dept_ref)*np.ones((len(Ping)))))
             
             
             
             #Do some modification, so it will look nice when plotting
-#            Ping = np.hstack((Ping,np.flip(Ping)))
             ping_=[]
             Depth = []
             for ping in Ping: 
@@ -179,47 +173,61 @@ def readLSSSwork(nc_raw_file,work_file):
     
 #    num_layers = len(doc['regionInterpretation']['layerInterpretation']['layerDefinitions'])
     if type(doc['regionInterpretation']['layerInterpretation']['layerDefinitions']['layer'])==list:
+        
+        
+        
         for layer in doc['regionInterpretation']['layerInterpretation']['layerDefinitions']['layer']: 
+            
             Out.LayerRegion[i] = structtype()
             Depth = []
             Ping = []
+            
             for bound in ((layer['boundaries'])): 
+                
                 for bound_i in (layer['boundaries'][bound]): 
                     
                     for bound_ in doc['regionInterpretation']['layerInterpretation']['boundaries'][bound]: 
+                        
                         if bound_['@id']==bound_i['@id']: 
                             try: 
-                                depth = np.array(bound_['curveRep']['depths'].replace('\n',' ').split(' '),float)
-                                ping = np.arange(np.int(bound_['curveRep']['pingRange']['@startOffset']),np.int(bound_['curveRep']['pingRange']['@startOffset'])+np.int(bound_['curveRep']['pingRange']['@numberOfPings']))
+                                bound_['curveRep']
+                                run = True 
+                            except KeyError: 
+                                run = False
+                                
+                            if run == True: 
                                 if bound_i['@isUpper'] == 'true':
-                                    Depth=np.hstack((Depth,np.flip(depth)))
-                                    Ping = np.hstack((Ping,np.flip(ping)))
+                                    depth_upper = np.array(bound_['curveRep']['depths'].replace('\n',' ').split(' '),float)
                                 else: 
-                                    Depth=np.hstack((Depth,depth))
-                                    Ping = np.hstack((Ping,ping))
-                                    
-                            except: 
-                                d=1
+                                    depth_lower = np.array(bound_['curveRep']['depths'].replace('\n',' ').split(' '),float)
+
+                                ping = np.arange(np.int(bound_['curveRep']['pingRange']['@startOffset']),np.int(bound_['curveRep']['pingRange']['@startOffset'])+np.int(bound_['curveRep']['pingRange']['@numberOfPings']))
+                                
+                                
+                                
+            Ping =[]
+            Time = []
+            Depth = []
+            for iv in range(len(ping)): 
+                Ping = np.hstack((Ping,ping[iv]))
+                Time = np.hstack((Time,ref_time[np.int(ping[iv])]))
+                Depth.append(np.array((depth_lower[iv],depth_upper[iv])))
                 
-            Ping = np.hstack((Ping,Ping[0]))
-            Depth = np.hstack((Depth,Depth[0]))
             
-            
-            ping_=[]
-            for ping in Ping: 
-                ping_ = np.hstack((ping_,ref_time[np.int(ping)]))
-            
-            Out.LayerRegion[i].Time = ping_
+            Out.LayerRegion[i].Time = Time
             Out.LayerRegion[i].Ping = Ping
-            Out.LayerRegion[i].Depth = Depth
+            Out.LayerRegion[i].Depth = np.asarray(Depth)
             i=i+1
+            
+            
+            
+            
     else: 
         
         Out.LayerRegion[i] = structtype()
         Depth = []
         Ping = []
         layer = doc['regionInterpretation']['layerInterpretation']['layerDefinitions']['layer']
-#        print(layer)
 ##        
         bound = doc['regionInterpretation']['layerInterpretation']['layerDefinitions']['layer']['boundaries']['curveBoundary']
         
@@ -246,8 +254,6 @@ def readLSSSwork(nc_raw_file,work_file):
         Out.LayerRegion[i].Time = ping_
         Out.LayerRegion[i].Ping = Ping
         Out.LayerRegion[i].Depth = Depth
-#        
-#        
         
         
         
@@ -334,6 +340,22 @@ def readLSSSwork(nc_raw_file,work_file):
         Out.SchoolRegion[ii]=structtype()
         Ping= []
         Depth = []
+        Freq = dict()
+        
+        ik = 0
+        for something in (layer['speciesInterpretationRoot']['speciesInterpretationRep']): 
+            Species = []
+            Fraction = []
+            for species in something['species']: 
+                Species = np.hstack((Species,(species['@ID'])))
+                Fraction = np.hstack((Fraction,(species['@fraction'])))
+                
+            Freq[ik] = structtype()
+            Freq[ik].freq = something['@frequency']
+            Freq[ik].Species = Species
+            Freq[ik].Fraction = Fraction
+            ik = ik+1
+                
     
         
         for ping in layer['pingMask']: 
@@ -347,11 +369,32 @@ def readLSSSwork(nc_raw_file,work_file):
         Out.SchoolRegion[ii].Time = ping_
         Out.SchoolRegion[ii].Ping = Ping
         Out.SchoolRegion[ii].Depth = Depth 
+        Out.SchoolRegion[ii].Interp = Freq 
             
     else: 
         
         for ii in range(len(layer)): 
             Out.SchoolRegion[ii]=structtype()
+            
+            
+            Freq = dict()
+            
+            ik = 0
+            for something in (layer[ii]['speciesInterpretationRoot']['speciesInterpretationRep']): 
+                Species = []
+                Fraction = []
+                for species in something['species']: 
+                    Species = np.hstack((Species,(species['@ID'])))
+                    Fraction = np.hstack((Fraction,(species['@fraction'])))
+                    
+                Freq[ik] = structtype()
+                Freq[ik].freq = something['@frequency']
+                Freq[ik].Species = Species
+                Freq[ik].Fraction = Fraction
+                
+                ik = ik+1
+                
+            
             
             Ping= []
             Depth = []
@@ -369,7 +412,131 @@ def readLSSSwork(nc_raw_file,work_file):
             Out.SchoolRegion[ii].Time = ping_
             Out.SchoolRegion[ii].Ping = Ping
             Out.SchoolRegion[ii].Depth = Depth 
+            Out.SchoolRegion[ii].Interp = Freq 
     return(Out)
         
+    
+    
+
+
+
+
+
+
+
+
+def AddWork2NC(inn,work): 
+    """
+    Protocoll to add lsss work/snap files to netcdf structure
+    """
+    
+    import pytz, datetime
+    import numpy as np
+
+    
+    #Move through each beamgroup
+    #
+    #TODO: 
+    #   Only add group where we have the information of frequency
+    
+    
+    for group_i in range(0,len(inn.groups['Sonar'].groups)): 
+        
+        #Make the interpretation group
+        inter = inn.groups['Sonar'].groups['Beam_group'+str(group_i+1)]
+        inter.createGroup('Interpretation')
+        version = inter.groups['Interpretation']
+    
+    
+        #Make the verison 
+        #
+        #TODO: 
+        # Check file if versions allready exist. 
+        # If so, create a new one
+        version.createGroup('v1')
+        version = version.groups['v1']
+    
+    
+        #Add version group attribute
+        version.version = '1'
+        version.version_author = 'WorkConverter'
+        version.version_comment = 'initial scrutiny'
+        version.version_save_date = str(pytz.timezone('Europe/Oslo').localize(datetime.datetime.utcnow())).replace(' ','T')
+    
+    
+    
+        #Define dimensions
+        #
+        #TODO: 
+        #Check if type is correct
+#        category_name_t=version.createVLType(np.float64,'category_name_t')
+#        version.createVLType(np.float64,'category_proportion_t')
+#        version.createVLType(np.float64,'mask_depth_t')
+        mask_depths_t = version.createVLType(np.float64,'mask_depths_t')
+#        version.createVLType(np.float64,'mask_time_t')
+#        version.createVLType(np.float64,'region_dim_t')
+#        version.createVLType(np.float64,'region_t')
+#        regions=version.createVLType(np.float32,'regions')
+    
+#        version.createDimension('test',None)
+        
+        
+        
+        
+        
+        
+        #Create dimensions 
+        try: 
+            version.createDimension('regions',None)
+        except RuntimeError: 
+            k=1
+    
+        
+        
+        
+        
+        #Create variable for minimum depth of each region
+        try: 
+            var = version.createVariable('min_depth',np.float32,('regions',),chunksizes=(512,))
+        except RuntimeError: 
+            k=1
+        var = version.variables['min_depth']
+        var.long_name = 'Minimum depth for each regions'
+        var.units = 'm'
+        var.valid_min = np.array(0.0)
+        
+            
+        #Create variable for maximum depth of each region
+        try: 
+            var=version.createVariable('max_depth',np.float32,('regions',),chunksizes=(512,))
+        except RuntimeError: 
+            k=1
+        var = version.variables['max_depth']
+        var.long_name = 'Maximum depth for each regions'
+        var.units = 'm'
+        var.valid_min = np.array(0.0)
+        
+        
+        try: 
+            var=version.createVariable('mask_depths',mask_depths_t,('regions',),chunksizes=(512,))
+        except RuntimeError: 
+            k=1
+        var = version.variables['max_depth']
+        var.long_name = 'Depth Pair of mask'
+        var.units = 'm'
+        var.valid_min = np.array(0.0)
+        
+            
+        
+        
+        
+        #Include data
+        for i in range(len(work.LayerRegion)): 
+            version.variables['min_depth'][i] = np.min(work.LayerRegion[i].Depth)
+            version.variables['max_depth'][i] = np.max(work.LayerRegion[i].Depth)
+            version.variables['mask_depths'][i] = work.LayerRegion[i].Depth
+    
+    
+    
     
     
