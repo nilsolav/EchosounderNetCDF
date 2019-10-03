@@ -30,12 +30,10 @@ group: Interpretation {
 			float(*) mask_depth_t;
 			mask_depth_t(*) mask_depths_t;
 			uint64(*) mask_time_t; // ragged array for region ping times
-			string(*) category_name_t; // lists of category names for each region
-			float(*) category_proportion_t; // lists of category proportions for each region
 		dimensions:
 			regions = 3; // varies to suit data. Could also be unlimited
 			channels = 3; // varies to suit data
-			region_categorisation = 5; // varies to suit data. Could also be unlimited.
+			categories = 5; // varies to suit data.
 		variables:
 			float sound_speed;
 				sound_speed:long_name = "Sound speed used to convert echo time into range";
@@ -68,24 +66,26 @@ group: Interpretation {
 			region_dim_t region_dimension; 
 				region_dimension:long_name = "Region dimension";
 
-			int id(regions);
-				id:long_name = "Dataset-unique identification number for each region";
-			string name(regions);
-				name:long_name = "Name of each region";
-				//name:_Encoding = "utf-8";
-			string provenance(regions);
-				provenance:long_name = "Provenance of each region"; 
-				provenance:_Encoding = "utf-8";
-			string comment(regions);
-				comment:long_name = "Comment for each region";
-				comment:_Encoding = "utf-8";
+			int region_id(regions);
+				region_id:long_name = "Dataset-unique identification number for each region";
+			string region_name(regions);
+				region_name:long_name = "Name of each region";
+				region_name:_Encoding = "utf-8";
+			string region_provenance(regions);
+				region_provenance:long_name = "Provenance of each region"; 
+				region_provenance:_Encoding = "utf-8";
+			string region_comment(regions);
+				region_comment:long_name = "Comment for each region";
+				region_comment:_Encoding = "utf-8";
 				
-			category_name_t category(regions);
-				category:long_name = "Categorisation name";
-				category:_Encoding = "utf-8";
-			category_proportion_t proportion(regions);
-				proportion:long_name = "Proportion of backscatter for the categorisation";
-				proportion:value_range = 0.0f, 1.0f;
+			string region_category_names(categories);
+				region_category_names:long_name = "Categorisation name";
+				region_category_names:_Encoding = "utf-8";
+			float region_category_proportions(categories);
+				region_category_proportions:long_name = "Proportion of backscatter for the categorisation";
+				region_category_proportions:value_range = 0.0f, 1.0f;
+			int region_category_ids(categories);
+				region_category_ids:long_name = "region_id of this categorisation and proportion";
 			
 			region_t region_type(regions);
 				region_type:long_name = "Region type";
@@ -117,12 +117,13 @@ group: Interpretation {
 			max_depth = 10.0, 42.0, 125.2;
 			start_time = 13189164120001, 13189164121000, 13189164124000;
 			end_time =   13189164123004, 13189164124000, 13189164131000;
-			id = 1, 5, 234;
-			name = "region1", "region2", "";
-			provenance = "KORONA-2.6.0;LSSS", "Echoview - template ABC", "Manual inspection";
-			comment = "", "", "whale!";
-			category = {"herring", "krill"}, {""}, {"whale", "dolphin"};
-			proportion = {0.9, 0.1}, {0.0}, {0.45, 0.40};
+			region_id = 1, 5, 234;
+			region_name = "region1", "region2", "";
+			region_provenance = "KORONA-2.6.0;LSSS", "Echoview - template ABC", "Manual inspection";
+			region_comment = "", "", "whale!";
+			region_category_names = "herring", "krill", "seal", "lion", "platypus";
+			region_category_proportions = 0.9, 0.1, 0.45, 0.40, 0.10;
+			region_category_ids = 1, 1, 234, 234, 234;
 			region_type = analysis, empty_water, analysis;
 			channel_names = "18kHz WBT ABC", "38kHz WBT ZYX", "120kHz GPT 123";
 			region_channels = 5, 7, 7;

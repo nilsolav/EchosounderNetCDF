@@ -33,8 +33,8 @@ with h5py.File(filename, 'r') as f:
     bb_left = interp['start_time']
     bb_right = interp['end_time']
     
-    region_id = interp['id']
-    region_name = interp['name']
+    region_id = interp['region_id']
+    region_name = interp['region_name']
     r_type = interp['region_type']
     r_type_enum = h5py.check_dtype(enum=interp['region_type'].dtype)
     # Convert region types into a text version
@@ -42,13 +42,14 @@ with h5py.File(filename, 'r') as f:
     r_type_name = [r_type_enum[i] for i in r_type]
     
     
-    cat = interp['category']
-    prop = interp['proportion']
+    cat_names = interp['region_category_names']
+    cat_prop = interp['region_category_proportions']
+    cat_ids = interp['region_category_ids']
     
-    for i, r in enumerate(d):
-        print('Region ' + str(region_id[i]) + ' has categories '
-              #+ cat[i] # causes python to crash...
-              + ' with proportions ' + str(prop[i]))
+    for i, r in enumerate(cat_names):
+        print('Region ' + str(cat_ids[i]) + ' has category '
+              + '"' + cat_names[i] + '"'
+              + ' with proportion ' + str(cat_prop[i]))
     
     #Plot the power of beam
     plt.figure(1)
