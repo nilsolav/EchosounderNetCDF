@@ -77,7 +77,13 @@ group: Interpretation {
 			string region_comment(regions);
 				region_comment:long_name = "Comment for each region";
 				region_comment:_Encoding = "utf-8";
-				
+			int region_order(regions):
+				region_order:long_name = "The stacking order of the region";
+				region_order:comment = "Regions of the same order cannot overlap";
+			region_t region_type(regions);
+				region_type:long_name = "Region type";
+			
+			// The acosutic categories. Each layer may have several categories and proportions.
 			string region_category_names(categories);
 				region_category_names:long_name = "Categorisation name";
 				region_category_names:_Encoding = "utf-8";
@@ -86,9 +92,6 @@ group: Interpretation {
 				region_category_proportions:value_range = 0.0f, 1.0f;
 			int region_category_ids(categories);
 				region_category_ids:long_name = "region_id of this categorisation and proportion";
-			
-			region_t region_type(regions);
-				region_type:long_name = "Region type";
 			
 			string channel_names(channels);
 				channel_names:long_name = "Echosounder channel names";
@@ -130,7 +133,7 @@ group: Interpretation {
 			mask_times = {13189164120001, 13189164121002, 13189164122003, 13189164123004}, 
 						 {13189164121000, 13189164122000, 13189164123000, 13189164124000}, 
 						 {13189164124000, 13189164125000, 13189164126000, 13189164127000, 13189164128000, 13189164129000, 13189164131000};
-			mask_depths = {{0.0, 5.0}, {0.0, 4.0, 5.0, 10.0}, {0.0, 10.0}, {0.0, 10.0}}, {{20.5, 25.0}, {30.5, 35.0}, {35.5, 40.0}, {40.0, 42.0}}, {{55.0, 105.0}, {60.0, 80.2, 100.6, 115.0}, {55.0, 107.0}, {55.0, 110.0}, {55.0, 115.6}, {55.0, 125.2}, {60, 115}};
+			mask_depths = {{0.0, 15.0}, {0.0, 4.0, 5.0, 10.0}, {0.0, 10.0}, {0.0, 10.0}}, {{20.5, 25.0}, {30.5, 35.0}, {35.5, 40.0}, {40.0, 42.0}}, {{55.0, 105.0}, {60.0, 80.2, 100.6, 115.0}, {55.0, 107.0}, {55.0, 110.0}, {55.0, 115.6}, {55.0, 125.2}, {60, 115}};
 		}
 	}
 }
