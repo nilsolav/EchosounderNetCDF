@@ -11,7 +11,26 @@ dat.keywords = 'scrutinisation mask, echosounder';
 dat.summary = 'Contains definitions of echogram scrutiny masks';
 dat.title = 'Echogram scrutiny masks';
 
+% group: Interpretation {
+%     group: v1 { // subsequent versions of this interpretation get put in new subgroups, using the numbering system v1, v2, etc.
+%         // SUGGESTIONS OF THINGS TO ADD:
+%         // - consider a separate implementation of layers, as per LSSS
+%         // - link to categorisation database and database version
+%         // - name of echosounder files that the data came from??
+% 
+%         :version = "1"; // increasing integers
+%         :version_save_date = "20190903T154023Z"; // ISO8601 format
+%         :version_author = "GJM";
+%         :version_comment = "Initial scrutiny";
+dat.group(1).version = '1';
+dat.group(1).version_save_date = datestr(now,30);
+dat.group(1).version_author = 'GJM';
+dat.group(1).version_comment = 'Initial scrutiny';
 
+dat.data(1).region_provenance = 'Converted from LSSS scrutiny';
+
+    
+    
 % Path to the example data
 whr = which('LSSSreader_readsnapfiles');
 [dr,~,~] = fileparts(whr);
@@ -38,7 +57,7 @@ for file=1%:size(files.F,1)
         snap=work;
     end
     
-    NCfile = [snap(1:end-4),'.h5'];
+    NCfile = [snap(1:end-5),'.cdl'];
     
     % Store in working dir for now
     [~,f1,f2]=fileparts(NCfile);

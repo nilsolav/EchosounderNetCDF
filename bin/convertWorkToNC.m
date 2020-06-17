@@ -17,18 +17,6 @@ function numRegions = convertWorkToNC(work, raw, NCfile, frequency, dat,varargin
     [school, layer, exclude, erased, info] = LSSSreader_readsnapfiles(work);
 
 
-
-%% Test file
-% 
-% ncfile='D:\repos\Github\EchosounderNetCDF\test\demo_mask.nc';
-% h5disp(ncfile)
-% dat0 = h5info(ncfile,'/Interpretation')
-% dat0 = h5info(ncfile)
-% dat = h5read(ncfile,'categories');
-% 
-% dat = h5read(ncfile);
-% 
-
     % Get timestamps of all pings in current file
     rawName =raw;
     [rawDir,rawName,ex]=fileparts(raw);
@@ -71,16 +59,6 @@ function numRegions = convertWorkToNC(work, raw, NCfile, frequency, dat,varargin
             bttm(layer(j).x(k)) = max([bttm(layer(j).x(k)) layer(j).y(k)]);
         end
     end
-%     % write out EVL file to be used as the bottom line
-%     evlFile = fullfile(evDir, [name(1:end-5) '.evl']);
-%     fid = fopen(evlFile, 'w');
-%     fprintf(fid, 'EVBD 3 3.00.41\r\n%d\r\n', length(bttm));
-%     for j = 1:length(bttm)
-%         pingDate = datestr(timestamps(j), 'yyyymmdd');
-%         pingTime = datestr(timestamps(j), 'HHMMSSFFF');
-%         fprintf(fid, '%s %s0 %.3f 3\r\n', pingDate, pingTime, bttm(j));
-%     end
-%     fclose(fid);
 
     % Find and convert the layers/schools. Erased and excluded areas also
     % get converted to Echoview regions.
@@ -116,166 +94,428 @@ function numRegions = convertWorkToNC(work, raw, NCfile, frequency, dat,varargin
     regionId = 0;
 
     if numRegions > 0
-%     netcdf mask {
-% 	:date_created = "20190819T134900Z";
-% 	:mask_convention_version = "0.1";
-% 	:mask_convention_name = "SONAR-netCDF4";
-% 	:mask_convention_authority = "ICES, IMR";
-% 	:rights = "Unrestricted rights";
-% 	:license = "None";
-% 	:Conventions = "CF-1.7, ACDD-1.3, SONAR-netCDF4-2.0";
-% 	:keywords = "scrutinisation mask, echosounder";
-% 	:summary = "Contains definitions of echogram scrutiny masks";
-%     :title = "Echogram scrutiny masks";
-	
-        % write out EVR file
+        % Create and open NC file
         fid = fopen(NCfile, 'w');
+        
+        % Add metadata
+        
+        % netcdf mask {
+        %     :date_created = "20190819T134900Z";
+        %     :mask_convention_version = "0.1";
+        %     :mask_convention_name = "SONAR-netCDF4";
+        %     :mask_convention_authority = "ICES, IMR";
+        %     :rights = "Unrestricted rights";
+        %     :license = "None";
+        %     :Conventions = "CF-1.7, ACDD-1.3, SONAR-netCDF4-2.0";
+        %     :keywords = "scrutinisation mask, echosounder";
+        %     :summary = "Contains definitions of echogram scrutiny masks";
+        %     :title = "Echogram scrutiny masks";
+	
         fprintf(fid,'netcdf mask {\r\n');
-        fprintf(fid,['\t\t:date_created = "',dat.date_created,'";\n']);
-        fprintf(fid,['\t\t:mask_convention_version = "',dat.mask_convention_version,'";\n']);
-        fprintf(fid,['\t\t:mask_convention_name = "',dat.mask_convention_name,'";\n']);
-        fprintf(fid,['\t\t:mask_convention_authority = "',dat.mask_convention_authority,'";\n']);
-        fprintf(fid,['\t\t:rights = "',dat.rights,'";\n']);
-        fprintf(fid,['\t\t:license = "',dat.license,'";\n']);
-        fprintf(fid,['\t\t:Conventions = "',dat.Conventions,'";\n']);
-        fprintf(fid,['\t\t:keywords = "',dat.keywords,'";\n']);
-        fprintf(fid,['\t\t:summary = "',dat.summary,'";\n']);
-        fprintf(fid,['\ttitle = "',dat.title,'";\n']);
+        fprintf(fid,['\t:date_created = "',dat.date_created,'";\n']);
+        fprintf(fid,['\t:mask_convention_version = "',dat.mask_convention_version,'";\n']);
+        fprintf(fid,['\t:mask_convention_name = "',dat.mask_convention_name,'";\n']);
+        fprintf(fid,['\t:mask_convention_authority = "',dat.mask_convention_authority,'";\n']);
+        fprintf(fid,['\t:rights = "',dat.rights,'";\n']);
+        fprintf(fid,['\t:license = "',dat.license,'";\n']);
+        fprintf(fid,['\t:Conventions = "',dat.Conventions,'";\n']);
+        fprintf(fid,['\t:keywords = "',dat.keywords,'";\n']);
+        fprintf(fid,['\t:summary = "',dat.summary,'";\n']);
+        fprintf(fid,['\t:title = "',dat.title,'";\n\n']);
         
-        % Fifth parameter is region type:
-        % 0 = bad (no data), 1 = analysis, 2 = marker, 3 = fishtracks, 4 = bad (empty water)
+        % Add Layer
         
-        if p.Results.exportLayers
-            regionId = writeRegions(fid, layer, timestamps, regionId, 1, frequency);
+        % group: Interpretation {
+        %     group: v1 { // subsequent versions of this interpretation get put in new subgroups, using the numbering system v1, v2, etc.
+        %         // SUGGESTIONS OF THINGS TO ADD:
+        %         // - consider a separate implementation of layers, as per LSSS
+        %         // - link to categorisation database and database version
+        %         // - name of echosounder files that the data came from??
+        % 
+        %         :version = "1"; // increasing integers
+        %         :version_save_date = "20190903T154023Z"; // ISO8601 format
+        %         :version_author = "GJM";
+        %         :version_comment = "Initial scrutiny";
+        fprintf(fid,'group: Interpretation {\n');
+        fprintf(fid,['\tgroup: v',dat.group(1).version,'{\n']);
+        fprintf(fid,['\t\t:version = "',dat.group(1).version,'";\n']);
+        fprintf(fid,['\t\t:version_save_date = "',dat.group(1).version_save_date,'";\n']);
+        fprintf(fid,['\t\t:version_author = "',dat.group(1).version_author,'";\n']);
+        fprintf(fid,['\t\t:version_comment = "',dat.group(1).version_comment,'";\n']);
+
+        % types:
+        %     // Note: empty_water == LSSS erased; no_data == LSSS excluded
+        %     byte enum region_t {empty_water = 0, no_data = 1, analysis = 2, track = 3, marker = 4};
+        %     // Storing 3D regions is not yet done, but we include the region dimension here anyway
+        %     byte enum region_dim_t {twoD = 0, threeD = 1};
+        %     float(*) mask_depth_t;
+        %     mask_depth_t(*) mask_depths_t;
+        %     uint64(*) mask_time_t; // ragged array for region ping times
+        fprintf(fid,'\t\ttypes:\n');
+        fprintf(fid,'\t\t\tbyte enum region_dim_t {twoD = 0, threeD = 1};\n');
+        fprintf(fid,'\t\t\tfloat(*) mask_depth_t;\n');
+        fprintf(fid,'\t\t\tuint64(*) mask_time_t;\n');
+        
+        % dimensions:
+        [dimensions, categories] = getDimensions(layer, school, e ,x );
+        %     regions = 3; // varies to suit data. Could also be unlimited
+        %     channels = 3; // varies to suit data
+        %     categories = 5; // varies to suit data.
+        fprintf(fid,'\t\tdimensions:\n');
+        fprintf(fid,['\t\t\tregions = ',num2str(dimensions.regions),';\n']);
+        fprintf(fid,['\t\t\tchannels = ',num2str(dimensions.channels),';\n']);
+        fprintf(fid,['\t\t\tcategories = ',num2str(dimensions.categories),';\n']);
+        
+        %variables
+		fprintf(fid,'\t\tvariables:\n');
+        fprintf(fid,'			float sound_speed;\n');
+        fprintf(fid,'				sound_speed:long_name = "Sound speed used to convert echo time into range";\n');
+        fprintf(fid,'				sound_speed:standard_name = "speed_of_sound_in_sea_water";\n');
+        fprintf(fid,'				sound_speed:units = "m/s";\n');
+        fprintf(fid,'	\t\t\tsound_speed:valid_min = 0.0f;\n');
+        fprintf(fid,'\n');
+        fprintf(fid,'\t\t\t// The bounding box of each region\n');
+        fprintf(fid,'\t\t\tfloat min_depth(regions);\n');
+        fprintf(fid,'\t\t\t\tmin_depth:long_name = "Minimum depth for each region";\n');
+        fprintf(fid,'\t\t\t\tmin_depth:units = "m";\n');
+        fprintf(fid,'\t\t\t\tmin_depth:valid_min = 0.0f;\n');
+        fprintf(fid,'\t\t\tfloat max_depth(regions);\n');
+        fprintf(fid,'\t\t\t\tmax_depth:long_name = "Maximum depth for each regions";\n');
+        fprintf(fid,'\t\t\t\tmax_depth:units = "m";\n');
+        fprintf(fid,'\t\t\t\tmax_depth:valid_min = 0.0f;\n');
+        fprintf(fid,'\t\t\tuint64 start_time(regions);\n');
+        fprintf(fid,'\t\t\t\tstart_time:long_name = "Timestamp of the earliest data point in each region";\n');
+        fprintf(fid,'\t\t\t\tstart_time:units = "milliseconds since 1601-01-01 00:00:00Z";\n');
+        fprintf(fid,'\t\t\t\tstart_time:axis = "T";\n');
+        fprintf(fid,'\t\t\t\tstart_time:calendar = "gregorian";\n');
+        fprintf(fid,'\t\t\t\tstart_time:standard_name = "time";\n');
+        fprintf(fid,'\t\t\tuint64 end_time(regions);\n');
+        fprintf(fid,'\t\t\t\tend_time:long_name = "Timestamp of the latest data point in each region";\n');
+        fprintf(fid,'\t\t\t\tend_time:units = "milliseconds since 1601-01-01 00:00:00Z";\n');
+        fprintf(fid,'\t\t\t\tend_time:axis = "T";\n');
+        fprintf(fid,'\t\t\t\tend_time:calendar = "gregorian";\n');
+        fprintf(fid,'\t\t\t\tend_time:standard_name = "time";\n');
+        fprintf(fid,'\t\t\t\t\n');
+        fprintf(fid,'\t\t\tregion_dim_t region_dimension; \n');
+        fprintf(fid,'\t\t\t\tregion_dimension:long_name = "Region dimension";\n');
+        fprintf(fid,'\n');
+        fprintf(fid,'\t\t\tint region_id(regions);\n');
+        fprintf(fid,'\t\t\t\tregion_id:long_name = "Dataset-unique identification number for each region";\n');
+        fprintf(fid,'\t\t\tstring region_name(regions);\n');
+        fprintf(fid,'\t\t\t\tregion_name:long_name = "Name of each region";\n');
+        fprintf(fid,'\t\t\t\tregion_name:_Encoding = "utf-8";\n');
+        fprintf(fid,'\t\t\tstring region_provenance(regions);\n');
+        fprintf(fid,'\t\t\t\tregion_provenance:long_name = "Provenance of each region"; \n');
+        fprintf(fid,'\t\t\t\tregion_provenance:_Encoding = "utf-8";\n');
+        fprintf(fid,'\t\t\tstring region_comment(regions);\n');
+        fprintf(fid,'\t\t\t\tregion_comment:long_name = "Comment for each region";\n');
+        fprintf(fid,'\t\t\t\tregion_comment:_Encoding = "utf-8";\n');
+        fprintf(fid,'\t\t\tint region_order(regions):\n');
+        fprintf(fid,'\t\t\t\tregion_order:long_name = "The stacking order of the region";\n');
+        fprintf(fid,'\t\t\t\tregion_order:comment = "Regions of the same order cannot overlap";\n');
+        fprintf(fid,'\t\t\tregion_t region_type(regions);\n');
+        fprintf(fid,'\t\t\t\tregion_type:long_name = "Region type";\n');
+        fprintf(fid,'\t\t\t\n');
+        fprintf(fid,'\t\t\t// The acosutic categories. Each layer may have several categories and proportions.\n');
+        fprintf(fid,'\t\t\tstring region_category_names(categories);\n');
+        fprintf(fid,'\t\t\t\tregion_category_names:long_name = "Categorisation name";\n');
+        fprintf(fid,'\t\t\t\tregion_category_names:_Encoding = "utf-8";\n');
+        fprintf(fid,'\t\t\tfloat region_category_proportions(categories);\n');
+        fprintf(fid,'\t\t\t\tregion_category_proportions:long_name = "Proportion of backscatter for the categorisation";\n');
+        fprintf(fid,'\t\t\t\tregion_category_proportions:value_range = 0.0f, 1.0f;\n');
+        fprintf(fid,'\t\t\tint region_category_ids(categories);\n');
+        fprintf(fid,'\t\t\t\tregion_category_ids:long_name = "region_id of this categorisation and proportion";\n');
+        fprintf(fid,'\t\t\t\n');
+        fprintf(fid,'\t\t\tstring channel_names(channels);\n');
+        fprintf(fid,'\t\t\t\tchannel_names:long_name = "Echosounder channel names";\n');
+        fprintf(fid,'\t\t\t\tchannel_names:_Encoding = "utf-8";\n');
+        fprintf(fid,'\t\t\tuint region_channels(regions);\n');
+        fprintf(fid,'\t\t\t\tregion_channels:long_name = "Echosounder channels that this region applies to";\n');
+        fprintf(fid,'\t\t\t\tregion_channels:description = "Bit mask derived from channel_names (index 1 of channel_names = bit 1, index 2 = bit 2, etc). Set bits in excess of the number of channels are to be ignored.";\n');
+        fprintf(fid,'\t\t\t\tregion_channels:_FillValue = 4294967295; // 2^32-1\n');
+        fprintf(fid,'\t\t\t\t\n');
+        fprintf(fid,'\t\t\tmask_time_t mask_times(regions);\n');
+        fprintf(fid,'\t\t\t\tmask_times:long_name = "Timestamp of each mask point";\n');
+        fprintf(fid,'\t\t\t\tmask_times:units = "milliseconds since 1601-01-01 00:00:00Z";\n');
+        fprintf(fid,'\t\t\t\tmask_times:axis = "T";\n');
+        fprintf(fid,'\t\t\t\tmask_times:calendar = "gregorian";\n');
+        fprintf(fid,'\t\t\t\tmask_times:standard_name = "time";\n');
+        fprintf(fid,'\t\t\tmask_depths_t mask_depths(regions);\n');
+        fprintf(fid,'\t\t\t\tmask_depths:long_name = "Depth pairs of mask";\n');
+        fprintf(fid,'\t\t\t\tmask_depths:units = "m";\n');
+        fprintf(fid,'\t\t\t\tmask_depths:valid_min = 0.0f;\n');
+        
+        % Extract region data
+%         if p.Results.exportLayers
+%             regionId = writeRegions(fid, layer, timestamps, regionId, 1, frequency);
+%         end
+         if p.Results.exportSchools
+             data = writeRegions(fid, school, timestamps, regionId,  1, frequency);
+         end
+%         if p.Results.exportErased
+%             regionId = writeRegions(fid, e, timestamps, regionId, 4, frequency);
+%         end
+%         if p.Results.exportExcluded
+%             writeRegions(fid, x, timestamps, regionId, 0, frequency);
+%         end
+        
+        % Concatenate the different region data
+        
+        % Write region data to cdl file
+        fprintf(fid,'\n\t\tdata:\n');
+        fprintf(fid,'\t\t\tregion_dimension = twoD;\n');
+        fprintf(fid,'\t\t\tsound_speed = 1496;\n');
+        
+        str = ['\t\t\tmin_depth =  ',num2str(data.min_depth,'%.1f, ')];
+        fprintf(fid,[str(1:end-1),';\n']);
+        
+        str = ['\t\t\tmax_depth =  ',num2str(data.max_depth,'%.1f, ')];
+        fprintf(fid,[str(1:end-1),';\n']);
+        
+        str = ['\t\t\tstart_time = ',num2str(data.start_time,'%i, ')];
+        fprintf(fid,[str(1:end-1),';\n']);
+        
+        str = ['\t\t\tend_time = ',num2str(data.end_time,'%i, ')];
+        fprintf(fid,[str(1:end-1),';\n']);
+        
+        str = ['\t\t\tregion_id = ',num2str(data.region_id,'%i, ')];
+        fprintf(fid,[str(1:end-1),';\n']);
+        
+        str0 = char(strjoin(data.region_name,'","'));
+        str = ['region_name = "',str0,'"'];
+        fprintf(fid,'\t\t\t%s;\n',str);
+        
+        str0 = char(strjoin(data.region_provenance,'", "'));
+        str = ['region_provenance = "',str0,'"'];
+        fprintf(fid,'\t\t\t%s;\n',str);
+        
+        str0 = char(strjoin(data.region_comment,'", "'));
+        str = ['region_comment = "',str0,'"'];
+        fprintf(fid,'\t\t\t%s;\n',str);
+        
+        str0 = char(strjoin(data.region_category_names,'", "'));
+        str = ['region_category_names = "',str0,'"'];
+        fprintf(fid,'\t\t\t%s;\n',str);
+        
+        str = ['region_category_proportions = ',num2str(data.region_category_proportions,'%.1f, ')];
+        str(end) = ';';
+        fprintf(fid,'\t\t\t%s\n',str);
+        
+        str = ['region_category_ids = ',num2str(data.region_category_ids,'%i, ')];
+        str(end) = ';';
+        fprintf(fid,'\t\t\t%s\n',str);
+
+        str0 = char(strjoin(data.region_type,'", "'));
+        str = ['region_region_type = "',str0,'"'];
+        fprintf(fid,'\t\t\t%s;\n',str);
+
+        str0 = char(strjoin(data.channel_names,'", "'));
+        str = ['region_channel_names = "',str0,'"'];
+        fprintf(fid,'\t\t\t%s;\n',str);
+
+        str = ['region_channels = ',num2str(data.region_channels,'%i, ')];
+        str(end) = ';';
+        fprintf(fid,'\t\t\t%s\n',str);
+        % Iterate mask times
+        for i = 1:length(data.mask_times)
+            if i==1
+                fprintf(fid,'\t\t\t%s','mask_times = {');
+            else
+                fprintf(fid,'\t\t\t%s','             {');
+            end
+            for j = 1:length(data.mask_times{i})
+                fprintf(fid,num2str(data.mask_times{i}{j}));
+                if j<length(data.mask_times{i})
+                    fprintf(fid,', ');
+                end
+            end
+            if i<length(data.mask_times)
+                fprintf(fid,'},\n');
+            else
+                fprintf(fid,'};\n');
+            end
         end
-        if p.Results.exportSchools
-            regionId = writeRegions(fid, school, timestamps, regionId,  1, frequency);
+        % Iterate mask depths
+        fprintf(fid,'\t\t\t%s','mask_depths = {');
+        for i = 1:length(data.mask_depths)
+            for j = 1:length(data.mask_depths{i})
+               fprintf(fid,'{');
+                str = num2str(cell2mat(data.mask_depths{i}{j}),'%.1f, ');
+                fprintf(fid,str(1:end-1));
+                if j<length(data.mask_times{i})
+                    fprintf(fid,'}, ');
+                else
+                    fprintf(fid,'}');
+                end
+            end
+            if i<length(data.mask_depths)
+                fprintf(fid,'}, {');
+            else
+                fprintf(fid,'};');
+            end
         end
-        if p.Results.exportErased
-            regionId = writeRegions(fid, e, timestamps, regionId, 4, frequency);
-        end
-        if p.Results.exportExcluded
-            writeRegions(fid, x, timestamps, regionId, 0, frequency);
-        end
+        fprintf(fid,'\n');
+% data.mask_depths = {{{0.0, 15.0}, {0.0, 4.0, 5.0, 10.0}, {0.0, 10.0}, {0.0, 10.0}}, {{20.5, 25.0}, {30.5, 35.0}, {35.5, 40.0}, {40.0, 42.0}}, {{55.0, 105.0}, {60.0, 80.2, 100.6, 115.0}, {55.0, 107.0}, {55.0, 110.0}, {55.0, 115.6}, {55.0, 125.2}, {60, 115}}};
         
         fclose(fid);
     end
 
 end
 
+%mergestructs = @(x,y) cell2struct([struct2cell(x);struct2cell(y)],[fieldnames(x);fieldnames(y)]);
 
-function regionId = writeRegions(fid, region, timestamps, regionId, regionType, frequency)
 
-    regionStructureVersion = 13; % from Echoview manual
-    selected = 0; % from Echoview manual
-    regionCreationType = -1; % == No type
-    numLinesNotes = 1;
-    notes = 'Converted from LSSS scrutiny';
-    numLinesDetectionSettings = 1;
-    detectionSettings = 'Detected by LSSS'; % Can this be left blank?
-    regionName = 'default region name';
-    
-    for j = 1:length(region)
-        
-        % get the ping interval around the start and end of the
-        % region (may need it later)
-        leftX = min(region(j).x);
-        if leftX == 1
-            leftX = 2;
-        end
-        
-        % sometimes things are 1 ping too long, so trim
-        %region(j).x(region(j).x > length(timestamps)) = length(timestamps);
-        
-        rightX = max(region(j).x);
-        if rightX == length(timestamps)
-            rightX = rightX - 1;
-        end
-        
-        % if the ping number is larger than the ping timestamps, trim the
-        % region
-        region(j).x(region(j).x > length(timestamps)) = length(timestamps);
-        
-        % if the file has 1 ping, just simulate things a little
-        if leftX <= 1 || leftX > length(timestamps)
-            startPingInt = 0.1/86400; % [days]
-        else
-            startPingInt = diff(timestamps(leftX-1:leftX)); % [days]
-        end
-        if rightX <= 1 || rightX+1 > length(timestamps)
-            endPingInt = 0.1/86400; % [days]
-        else
-            endPingInt =  diff(timestamps(rightX:rightX+1)); % [days]
-        end
-        
-        t = timestamps(region(j).x);
-        d = region(j).y;
-        regionId = regionId + 1;
-        
-        % Fix up some undesired region stuff
-        if length(d) == 4 && length(unique(region(j).x)) <= 2 && length(unique(d)) == 2
-            % For rectangular regions, make them look a little better in
-            % Echoview by expanding the start and stop pings to cover all
-            % of that ping (otherwise they start/stop in the middle of
-            % pings.
-            t = [min(t)-startPingInt/2 min(t)-startPingInt/2 max(t)+endPingInt/2 max(t)+endPingInt/2];
-            d = [min(d) max(d) max(d) min(d)];
-        end
+function data = writeRegions(fid, region, timestamps, regionId, regionType, frequency,dat)
 
-        % Work out which channel has the requested frequency. If it is not
-        % there, then skip that region in the EVR file.
-        
-        % Channel to freq information is only available in the layer and
-        % school structures. Exclude regions apply across all frequencies.
-        % Erased regions are channel specific.
-        channel = NaN;
-        if isfield(region(j), 'channel') && ~isempty(region(j).channel)
-            if isfield(region(j).channel(1), 'frequency')
-                for k = 1:length(region(j).channel)
-                    if strcmp(region(j).channel(k).frequency, frequency)
-                        channel = k;
-                        break;
-                    end
-                end
-            end
-        end
-        
-        % assumes that there is only 1 species classification (if not, it
-        % uses the first one).
-        
-        if isfield(region(j), 'channel') && ~isnan(channel)
-            % if the current region has species allocated to it, use that,
-            % otherwise use a 'null' species.
-            if isfield(region(j).channel(channel), 'species')
-                regionClassification = sprintf('{species: %s, fraction: %s, freq:%s}', ...
-                    region(j).channel(channel).species(1).speciesID, ...
-                    region(j).channel(channel).species(1).fraction, ...
-                    region(j).channel(channel).frequency);
-            else
-                regionClassification = '{}';
-            end
-        else
-            regionClassification = '{}';
-        end
-        
-        fprintf(fid, '\r\n');
-        fprintf(fid, '%d %d %d %d %d -1 0 0 0 0 0 0 0\r\n', ...
-            regionStructureVersion, length(t), regionId, selected, ...
-            regionCreationType);
-        fprintf(fid, '%d\r\n', numLinesNotes); % allow for multiple lines
-        fprintf(fid, '%s\r\n', notes);
-        fprintf(fid, '%d\r\n', numLinesDetectionSettings); % allow for multiple lines
-        fprintf(fid, '%s\r\n', detectionSettings);
-        fprintf(fid, '%s\r\n', regionClassification);
-        
+% 		data:
+% 			// simple example regions
+% 			region_dimension = twoD;
+% 			sound_speed = 1496;
+% 			min_depth =  0.0, 20.5, 55.0;
+% 			max_depth = 10.0, 42.0, 125.2;
+% 			start_time = 13189164120001, 13189164121000, 13189164124000;
+% 			end_time =   13189164123004, 13189164124000, 13189164131000;
+% 			region_id = 1, 5, 234;
+% 			region_name = "region1", "region2", "";
+% 			region_provenance = "KORONA-2.6.0;LSSS", "Echoview - template ABC", "Manual inspection";
+% 			region_comment = "", "", "whale!";
+% 			region_category_names = "herring", "krill", "seal", "lion", "platypus";
+% 			region_category_proportions = 0.9, 0.1, 0.45, 0.40, 0.10;
+% 			region_category_ids = 1, 1, 234, 234, 234;
+% 			region_type = analysis, empty_water, analysis;
+% 			channel_names = "18kHz WBT ABC", "38kHz WBT ZYX", "120kHz GPT 123";
+% 			region_channels = 5, 7, 7;
+% 			mask_times = {13189164120001, 13189164121002, 13189164122003, 13189164123004}, 
+% 						 {13189164121000, 13189164122000, 13189164123000, 13189164124000}, 
+% 						 {13189164124000, 13189164125000, 13189164126000, 13189164127000, 13189164128000, 13189164129000, 13189164131000};
+% 			mask_depths = {{0.0, 15.0}, {0.0, 4.0, 5.0, 10.0}, {0.0, 10.0}, {0.0, 10.0}}, {{20.5, 25.0}, {30.5, 35.0}, {35.5, 40.0}, {40.0, 42.0}}, {{55.0, 105.0}, {60.0, 80.2, 100.6, 115.0}, {55.0, 107.0}, {55.0, 110.0}, {55.0, 115.6}, {55.0, 125.2}, {60, 115}};
 
-        for k = 1:length(t)
-            fprintf(fid, '%s %d', pointToEchoview(t(k), d(k))); % vectorise this?
-        end
-        fprintf(fid, '%d\r\n', regionType);
-        fprintf(fid, '%s\r\n', regionName);
-        
-    end
+% test data:
+data.region_dimension = 'twoD';
+data.sound_speed = 1496;
+data.min_depth =  [0.0, 20.5, 55.0];
+data.max_depth = [10.0, 42.0, 125.2];
+data.start_time = [13189164120001, 13189164121000, 13189164124000];
+data.end_time =  [13189164123004, 13189164124000, 13189164131000];
+data.region_id = [1, 5, 234];
+data.region_name = ["region1", "region2", ""];
+data.region_provenance = ["KORONA-2.6.0;LSSS", "Echoview - template ABC", "Manual inspection"];
+data.region_comment = ["", "", "whale!"];
+data.region_category_names = ["herring", "krill", "seal", "lion", "platypus"];
+data.region_category_proportions = [0.9, 0.1, 0.45, 0.40, 0.10];
+data.region_category_ids = [1, 1, 234, 234, 234];
+data.region_type =  ["analysis", "empty_water", "analysis"];
+data.channel_names = ["18kHz WBT ABC","38kHz WBT ZYX", "120kHz GPT 123"];
+data.region_channels = [5, 7, 7];
+data.mask_times = {{13189164120001, 13189164121002, 13189164122003, 13189164123004}, ...
+ 						 {13189164121000, 13189164122000, 13189164123000, 13189164124000}, ...
+ 						 {13189164124000, 13189164125000, 13189164126000, 13189164127000, 13189164128000, 13189164129000, 13189164131000}};
+data.mask_depths = {{{0.0, 15.0}, {0.0, 4.0, 5.0, 10.0}, {0.0, 10.0}, {0.0, 10.0}}, {{20.5, 25.0}, {30.5, 35.0}, {35.5, 40.0}, {40.0, 42.0}}, {{55.0, 105.0}, {60.0, 80.2, 100.6, 115.0}, {55.0, 107.0}, {55.0, 110.0}, {55.0, 115.6}, {55.0, 125.2}, {60, 115}}};
+
+
+%     numLinesNotes = 1;
+%     
+%     for j = 1:length(region)
+%         
+%         % get the ping interval around the start and end of the
+%         % region (may need it later)
+%         leftX = min(region(j).x);
+%         if leftX == 1
+%             leftX = 2;
+%         end
+%         
+%         % sometimes things are 1 ping too long, so trim
+%         %region(j).x(region(j).x > length(timestamps)) = length(timestamps);
+%         
+%         rightX = max(region(j).x);
+%         if rightX == length(timestamps)
+%             rightX = rightX - 1;
+%         end
+%         
+%         % if the ping number is larger than the ping timestamps, trim the
+%         % region
+%         region(j).x(region(j).x > length(timestamps)) = length(timestamps);
+%         
+%         % if the file has 1 ping, just simulate things a little
+%         if leftX <= 1 || leftX > length(timestamps)
+%             startPingInt = 0.1/86400; % [days]
+%         else
+%             startPingInt = diff(timestamps(leftX-1:leftX)); % [days]
+%         end
+%         if rightX <= 1 || rightX+1 > length(timestamps)
+%             endPingInt = 0.1/86400; % [days]
+%         else
+%             endPingInt =  diff(timestamps(rightX:rightX+1)); % [days]
+%         end
+%         
+%         t = timestamps(region(j).x);
+%         d = region(j).y;
+%         regionId = regionId + 1;
+%         
+%         % Fix up some undesired region stuff
+%         if length(d) == 4 && length(unique(region(j).x)) <= 2 && length(unique(d)) == 2
+%             % For rectangular regions, make them look a little better in
+%             % Echoview by expanding the start and stop pings to cover all
+%             % of that ping (otherwise they start/stop in the middle of
+%             % pings.
+%             t = [min(t)-startPingInt/2 min(t)-startPingInt/2 max(t)+endPingInt/2 max(t)+endPingInt/2];
+%             d = [min(d) max(d) max(d) min(d)];
+%         end
+% 
+%         % Work out which channel has the requested frequency. If it is not
+%         % there, then skip that region in the EVR file.
+%         
+%         % Channel to freq information is only available in the layer and
+%         % school structures. Exclude regions apply across all frequencies.
+%         % Erased regions are channel specific.
+%         channel = NaN;
+%         if isfield(region(j), 'channel') && ~isempty(region(j).channel)
+%             if isfield(region(j).channel(1), 'frequency')
+%                 for k = 1:length(region(j).channel)
+%                     if strcmp(region(j).channel(k).frequency, frequency)
+%                         channel = k;
+%                         break;
+%                     end
+%                 end
+%             end
+%         end
+%         
+%         % assumes that there is only 1 species classification (if not, it
+%         % uses the first one).
+%         
+%         if isfield(region(j), 'channel') && ~isnan(channel)
+%             % if the current region has species allocated to it, use that,
+%             % otherwise use a 'null' species.
+%             if isfield(region(j).channel(channel), 'species')
+%                 regionClassification = sprintf('{species: %s, fraction: %s, freq:%s}', ...
+%                     region(j).channel(channel).species(1).speciesID, ...
+%                     region(j).channel(channel).species(1).fraction, ...
+%                     region(j).channel(channel).frequency);
+%             else
+%                 regionClassification = '{}';
+%             end
+%         else
+%             regionClassification = '{}';
+%         end
+%         
+%         fprintf(fid, '\r\n');
+%         fprintf(fid, '%d %d %d %d %d -1 0 0 0 0 0 0 0\r\n', ...
+%             regionStructureVersion, length(t), regionId, selected, ...
+%             regionCreationType);
+%         fprintf(fid, '%d\r\n', numLinesNotes); % allow for multiple lines
+%         fprintf(fid, '%s\r\n', notes);
+%         fprintf(fid, '%d\r\n', numLinesDetectionSettings); % allow for multiple lines
+%         fprintf(fid, '%s\r\n', detectionSettings);
+%         fprintf(fid, '%s\r\n', regionClassification);
+%         
+% 
+%         for k = 1:length(t)
+%             fprintf(fid, '%s %d', pointToEchoview(t(k), d(k))); % vectorise this?
+%         end
+%         fprintf(fid, '%d\r\n', regionType);
+%         fprintf(fid, '%s\r\n', regionName);
+%         
+%     end
 
 end    
 
@@ -433,8 +673,44 @@ function t = getPingTimes(rawDir, fname)
 
 end
 
+function [dim,categories] = getDimensions(layer, school, e ,x )
+%dimensions(1)
 
+%     regions = 3; // varies to suit data. Could also be unlimited
+%     channels = 3; // varies to suit data
+%     categories = 5; // varies to suit data.
 
+% Sum the number of regions
+dim.regions = length(layer) + length(school) + length(e) + length(x);
+
+% Get the number of unique categories
+k=1;
+type = {'layer','school','e','x'};
+mch=1;
+for i=1:4
+    eval(['region=',type{i},';'])
+    for j=1:length(region)
+        if isfield(region(j), 'channel') 
+            % if the current region has species allocated to it, use that,
+            % otherwise use a 'null' species.
+
+            % Find the number of channels
+            mch = max(mch,length(region(j).channel));
+            for ch=1:length(region(j).channel)
+            if isfield(region(j).channel(ch), 'species')
+                cat{k}=region(j).channel(ch).species(1).speciesID;
+                k=k+1;
+            end
+            end
+        end
+    end
+end
+
+dim.channels = mch;
+categories = unique(cat);
+dim.categories = length(categories);
+
+end
 % 
 % 
 % nccreate(file,'Var1')
