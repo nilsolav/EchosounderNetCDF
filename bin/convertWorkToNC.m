@@ -151,11 +151,14 @@ function numRegions = convertWorkToNC(work, raw, NCfile, frequency, dat,varargin
         %     float(*) mask_depth_t;
         %     mask_depth_t(*) mask_depths_t;
         %     uint64(*) mask_time_t; // ragged array for region ping times
+        
         fprintf(fid,'\t\ttypes:\n');
+        fprintf(fid,'\t\t\tbyte enum region_t {empty_water = 0, no_data = 1, analysis = 2, track = 3, marker = 4};\n')
         fprintf(fid,'\t\t\tbyte enum region_dim_t {twoD = 0, threeD = 1};\n');
         fprintf(fid,'\t\t\tfloat(*) mask_depth_t;\n');
+        fprintf(fid,'\t\t\tmask_depth_t(*) mask_depths_t;\n')
         fprintf(fid,'\t\t\tuint64(*) mask_time_t;\n');
-        
+
         % dimensions:
         [dimensions, categories] = getDimensions(layer, school, e ,x );
         %     regions = 3; // varies to suit data. Could also be unlimited
@@ -210,7 +213,7 @@ function numRegions = convertWorkToNC(work, raw, NCfile, frequency, dat,varargin
         fprintf(fid,'\t\t\tstring region_comment(regions);\n');
         fprintf(fid,'\t\t\t\tregion_comment:long_name = "Comment for each region";\n');
         fprintf(fid,'\t\t\t\tregion_comment:_Encoding = "utf-8";\n');
-        fprintf(fid,'\t\t\tint region_order(regions):\n');
+        fprintf(fid,'\t\t\tint region_order(regions);\n');
         fprintf(fid,'\t\t\t\tregion_order:long_name = "The stacking order of the region";\n');
         fprintf(fid,'\t\t\t\tregion_order:comment = "Regions of the same order cannot overlap";\n');
         fprintf(fid,'\t\t\tregion_t region_type(regions);\n');
@@ -306,11 +309,11 @@ function numRegions = convertWorkToNC(work, raw, NCfile, frequency, dat,varargin
         fprintf(fid,'\t\t\t%s\n',str);
 
         str0 = char(strjoin(data.region_type,'", "'));
-        str = ['region_region_type = "',str0,'"'];
+        str = ['region_type = "',str0,'"'];
         fprintf(fid,'\t\t\t%s;\n',str);
 
         str0 = char(strjoin(data.channel_names,'", "'));
-        str = ['region_channel_names = "',str0,'"'];
+        str = ['channel_names = "',str0,'"'];
         fprintf(fid,'\t\t\t%s;\n',str);
 
         str = ['region_channels = ',num2str(data.region_channels,'%i, ')];
@@ -355,6 +358,9 @@ function numRegions = convertWorkToNC(work, raw, NCfile, frequency, dat,varargin
             end
         end
         fprintf(fid,'\n');
+        fprintf(fid,'\t\t}\n');
+        fprintf(fid,'\t}\n');
+        fprintf(fid,'}\n');
 % data.mask_depths = {{{0.0, 15.0}, {0.0, 4.0, 5.0, 10.0}, {0.0, 10.0}, {0.0, 10.0}}, {{20.5, 25.0}, {30.5, 35.0}, {35.5, 40.0}, {40.0, 42.0}}, {{55.0, 105.0}, {60.0, 80.2, 100.6, 115.0}, {55.0, 107.0}, {55.0, 110.0}, {55.0, 115.6}, {55.0, 125.2}, {60, 115}}};
         
         fclose(fid);
