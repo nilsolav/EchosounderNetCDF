@@ -29,8 +29,11 @@ dat.group(1).version_comment = 'Initial scrutiny';
 
 dat.data(1).region_provenance = 'Converted from LSSS scrutiny';
 
-    
-    
+dat.group(1).region_provenance = "LSSS";
+dat.group(1).region_comment = "";
+
+dat.group(1).region_type = "Analysis";
+
 % Path to the example data
 whr = which('LSSSreader_readsnapfiles');
 [dr,~,~] = fileparts(whr);
@@ -43,7 +46,7 @@ files.work = rdir(fullfile(dr,'exampledata','**','*.work'));
 files.raw = rdir(fullfile(dr,'exampledata','**','*.raw'));
 
 % Match the corresponding snap, work and raw files (by file name)
-files=LSSSreader_pairfiles(files);
+files = LSSSreader_pairfiles(files);
 
 pl = true; % Set to false for plotting the masks only (without background echograms)
 %pl = false;
@@ -65,4 +68,10 @@ for file=1%:size(files.F,1)
     
     % Run conversion
     numRegions = convertWorkToNC(snap, raw, NCfile, 38000,dat);
+    %     f=pwd;
+    %     cd('C:\Program Files\netCDF 4.7.4\bin')
+    %     str = ['./ncgen D:\repos\Github\EchosounderNetCDF\bin\',NCfile];
+    %     system(str)
+    %     cd(f)
+    %str = '!./ncgen D:\repos\Github\EchosounderNetCDF\bin\2
 end
