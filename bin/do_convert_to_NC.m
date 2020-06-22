@@ -66,12 +66,9 @@ for file=1%:size(files.F,1)
     [~,f1,f2]=fileparts(NCfile);
     NCfile = [f1,f2];
     
-    % Run conversion
+    % Create cdl file
     numRegions = convertWorkToNC(snap, raw, NCfile, 38000,dat);
-    %     f=pwd;
-    %     cd('C:\Program Files\netCDF 4.7.4\bin')
-    %     str = ['./ncgen D:\repos\Github\EchosounderNetCDF\bin\',NCfile];
-    %     system(str)
-    %     cd(f)
-    %str = '!./ncgen D:\repos\Github\EchosounderNetCDF\bin\2
+    % Create NC file
+    str = ['"C:\Program Files\netCDF 4.7.4\bin\ncgen" ',NCfile];
+    system(str)
 end

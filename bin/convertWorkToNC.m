@@ -379,8 +379,8 @@ data.mask_times = {{13189164120001, 13189164121002, 13189164122003, 131891641230
     {13189164121000, 13189164122000, 13189164123000, 13189164124000}, ...
     {13189164124000, 13189164125000, 13189164126000, 13189164127000, 13189164128000, 13189164129000, 13189164131000}};
 data.mask_depths = {{{0.0, 15.0}, {0.0, 4.0, 5.0, 10.0}, {0.0, 10.0}, {0.0, 10.0}}, {{20.5, 25.0}, {30.5, 35.0}, {35.5, 40.0}, {40.0, 42.0}}, {{55.0, 105.0}, {60.0, 80.2, 100.6, 115.0}, {55.0, 107.0}, {55.0, 110.0}, {55.0, 115.6}, {55.0, 125.2}, {60, 115}}};
-data2=data;
-
+data2 = data;
+clear data
 % Real data
 
 % Per region
@@ -403,8 +403,11 @@ data2=data;
 %     
 %     mask_times = {13189164120001, 13189164121002, 13189164122003, 13189164123004};
 %     mask_depths = {{0.0, 15.0}, {0.0, 4.0, 5.0, 10.0}, {0.0, 10.0}, {0.0, 10.0}};
-    
-   
+
+% Create id variable that increment by one at each new cat/channel
+category_ids =1;
+
+% Loop over regions
 for j = 1:length(region)
     numLinesNotes = 1;
     
@@ -459,46 +462,48 @@ for j = 1:length(region)
     % Channel to freq information is only available in the layer and
     % school structures. Exclude regions apply across all frequencies.
     % Erased regions are channel specific.
-    channel = NaN;
-    if isfield(region(j), 'channel') && ~isempty(region(j).channel)
-        if isfield(region(j).channel(1), 'frequency')
-            for k = 1:length(region(j).channel)
-                if strcmp(region(j).channel(k).frequency, frequency)
-                    channel = k;
-                    break;
-                end
-            end
-        end
-    end
     
+%     channel = NaN;
+%     if isfield(region(j), 'channel') && ~isempty(region(j).channel)
+%         if isfield(region(j).channel(1), 'frequency')
+%             for k = 1:length(region(j).channel)
+%                 if strcmp(region(j).channel(k).frequency, frequency)
+%                     channel = k;
+%                     break;
+%                 end
+%             end
+%         end
+%     end
+
     % assumes that there is only 1 species classification (if not, it
     % uses the first one). NOH: I assume this is a special case for
     % ev files? We need to expand and use the category_ids, right?
     
-    if isfield(region(j), 'channel') && ~isnan(channel)
-        % if the current region has species allocated to it, use that,
-        % otherwise use a 'null' species ("").
-        if isfield(region(j).channel(channel), 'species')
-            data.region_category_names(j) = region(j).channel(channel).species(1).speciesID;
-            data.region_category_proportions(j) = region(j).channel(channel).species(1).fraction;
-            data.region_category_ids(j) = 1;
-            data.channel_names(j) = region(j).channel(channel).frequency;
-            data.region_channels(j) = j;
-        else
-            data.region_category_names(j) = "";
-            data.region_category_proportions(j) = "";
-            data.region_category_ids(j) = 1;
-            data.channel_names(j) = region(j).channel(channel).frequency;
-            data.region_channels(j) = j;
+    if isfield(region(j), 'channel')
+        for channel=1:length(region(j).channel)
+            % if the current region has species allocated to it, use that,
+            % otherwise use a 'null' species ("").
+            if isfield(region(j).channel(channel), 'species')
+                for sp = 1:length(region(j).channel(channel).species)
+                    data.region_category_names(category_ids) = ...
+                        string(region(j).channel(channel).species(sp).speciesID);
+                    data.region_category_proportions(category_ids) = ...
+                        str2double(region(j).channel(channel).species(sp).fraction);
+                    data.region_category_ids(category_ids) = category_ids;
+                    data.channel_names(category_ids) = string(region(j).channel(channel).frequency);
+                    data.region_channels(category_ids) = j;
+                    category_ids = category_ids + 1;
+                end
+            else
+                data.region_category_names(category_ids) = "0";
+                data.region_category_proportions(category_ids) = 1;
+                data.region_category_ids(category_ids) = category_ids;
+                data.channel_names(category_ids) = string(region(j).channel(channel).frequency);
+                data.region_channels(category_ids) = j;
+                category_ids = category_ids + 1;
+            end
         end
-    else
-        data.region_category_names(j) = "";
-        data.region_category_proportions(j) = "";
-        data.region_category_ids(j) = j;
-        data.channel_names(j) = "";
-        data.region_channels(j) = j;
-    end
-    
+    end    
     % Bounding box
     data.min_depth(j) = min(region(j).y);
     data.max_depth(j) = max(region(j).y);
@@ -511,13 +516,17 @@ for j = 1:length(region)
     data.region_comment(j) = dat.group(1).region_comment;
     data.region_type(j) = dat.group(1).region_type;
     % Mask times
-    
+    c = unique(region(j).x);
+    data.mask_times{j} = num2cell(c);
     
     % Mask depths
     
-    
+    for n=1:length(c)
+        % Sort the depths within this mask time
+        ind = region(j).x == c(n);
+        data.mask_depths{j}{n} = num2cell(sort(region(j).y(ind)));
+    end
 end
-data=data2
 end
 
 function p = convertExcludeToPolygon(exclude, timestamps)
