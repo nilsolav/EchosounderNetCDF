@@ -16,12 +16,16 @@ function numRegions = convertWorkToNC(work, raw, NCfile, frequency, dat,varargin
     % Get scrutiny
     [school, layer, exclude, erased, info] = LSSSreader_readsnapfiles(work);
 
-
+    
     % Get timestamps of all pings in current file
-    rawName =raw;
-    [rawDir,rawName,ex]=fileparts(raw);
-    rawName = [rawName,ex];
-    timestamps = getPingTimes(rawDir,rawName);
+    if false
+        rawName =raw;
+        [rawDir,rawName,ex]=fileparts(raw);
+        rawName = [rawName,ex];
+        timestamps = getPingTimes(rawDir,rawName);
+    else
+        timestamps = now+(1:info.numberOfPings)/(24*60);
+    end
     
     % check that number of timestamps is consistent with number of 
     % pings used in scrutiny file.
@@ -67,6 +71,7 @@ function numRegions = convertWorkToNC(work, raw, NCfile, frequency, dat,varargin
     % frequency. We instead require the user to tell us the mapping between
     % channel numbers and frequency. This is used to work out which erase
     % masks to use.
+    
     channelID = [];
     if ~isempty(p.Results.channelFrequencies)
         i = find(str2double(frequency) == p.Results.channelFrequencies(:,2));
@@ -94,44 +99,36 @@ function numRegions = convertWorkToNC(work, raw, NCfile, frequency, dat,varargin
     regionId = 0;
 
     if numRegions > 0
+        channels = getchannels(school, layer, x, e);
+        layer = addChannelstoLayer(layer, channels);
         % Extract region data
         category_ids = 1;
+        % Note: layers do not come with a region and the region_channels
+        % must be added to layer before issuing this part of the code.
         if p.Results.exportLayers&&~isempty(layer)
-            [data_layer,category_ids] = writeRegions(fid, layer, timestamps, regionId, 1, frequency, dat,category_ids);
-            %data=data_sub;
+            [data_layer,category_ids] = writeRegions(layer, timestamps, regionId, 1, dat,category_ids, channels);
         end
         if p.Results.exportSchools&&~isempty(school)
-            [data,category_ids] = writeRegions(school, timestamps, regionId,  1, frequency, dat,category_ids);
-            % Concatenate
+            [data,category_ids] = writeRegions(school, timestamps, regionId,  1, dat,category_ids, channels);
         end
         if p.Results.exportErased&&~isempty(e)
-            [data_e,category_ids] = writeRegions(fid, e, timestamps, regionId, 4, frequency,category_ids);
+            [data_e,category_ids] = writeRegions(e, timestamps, regionId, 4, category_ids, channels);
         end
-        if p.Results.exportExcluded||~isempty(x)
-            [data_x,category_ids] = writeRegions(fid, x, timestamps, regionId, 0, frequency,category_ids);
+        if p.Results.exportExcluded&&~isempty(x)
+            [data_x,category_ids] = writeRegions(x, timestamps, regionId, 0, category_ids, channels);
         end
-        % Concatenate region data
         
         % Write cdl file
         writecdl(NCfile,data,dat)
     end
 end
 
-%mergestructs = @(x,y) cell2struct([struct2cell(x);struct2cell(y)],[fieldnames(x);fieldnames(y)]);
 
+function [data,category_ids] = writeRegions(region, timestamps, regionId, regionType, dat,category_ids,channels)
 
-function [data,category_ids] = writeRegions(region, timestamps, regionId, regionType, frequency,dat,category_ids)
-
-% Get channel names
+% Get the channels across the differen schools, layers, e and x
+data.channel_names = channels;
 k=1;
-for j=1:length(region)
-    for channel = 1:length(region(j).channel)
-        dum(k) = string(region(j).channel(channel).frequency);
-        k=k+1;
-    end
-end
-data.channel_names = unique(dum);
-    
 % Loop over regions
 for j = 1:length(region)
     numLinesNotes = 1;
@@ -154,7 +151,7 @@ for j = 1:length(region)
     % if the ping number is larger than the ping timestamps, trim the
     % region
     region(j).x(region(j).x > length(timestamps)) = length(timestamps);
-    
+     
     % if the file has 1 ping, just simulate things a little
     if leftX <= 1 || leftX > length(timestamps)
         startPingInt = 0.1/86400; % [days]
@@ -180,7 +177,7 @@ for j = 1:length(region)
         t = [min(t)-startPingInt/2 min(t)-startPingInt/2 max(t)+endPingInt/2 max(t)+endPingInt/2];
         d = [min(d) max(d) max(d) min(d)];
     end
- 
+  
     % Extract the information per channel
     if isfield(region(j), 'channel')
         % bit map for the channels this region applies to [1 1 0 1] etc.
@@ -190,18 +187,20 @@ for j = 1:length(region)
             % otherwise use a 'null' species ("").
             if isfield(region(j).channel(channel), 'species')
                 for sp = 1:length(region(j).channel(channel).species)
-                    data.region_category_names(category_ids) = ...
+                    data.region_category_names(k) = ...
                         string(region(j).channel(channel).species(sp).speciesID);
-                    data.region_category_proportions(category_ids) = ...
+                    data.region_category_proportions(k) = ...
                         str2double(region(j).channel(channel).species(sp).fraction);
-                    data.region_category_ids(category_ids) = category_ids;
+                    data.region_category_ids(k) = category_ids;
                     category_ids = category_ids + 1;
+                    k=k+1;
                 end
             else
-                data.region_category_names(category_ids) = "0";
-                data.region_category_proportions(category_ids) = 1;
-                data.region_category_ids(category_ids) = category_ids;
+                data.region_category_names(k) = "0";
+                data.region_category_proportions(k) = 1;
+                data.region_category_ids(k) = category_ids;
                 category_ids = category_ids + 1;
+                k=k+1;
             end
             % bit mask on which channel this belong to
             dum = dum | data.channel_names == region(j).channel(channel).frequency;
@@ -226,14 +225,27 @@ for j = 1:length(region)
     data.mask_times{j} = num2cell(c);
     
     % Mask depths
-    
     for n=1:length(c)
         % Sort the depths within this mask time
         ind = region(j).x == c(n);
         data.mask_depths{j}{n} = num2cell(sort(region(j).y(ind)));
     end
+    if isfield(data,'channel_names')
+        data.channel_names = unique(data.channel_names);
+    end
 end
-data.channel_names = unique(data.channel_names);
+end
+
+function layer = addChannelstoLayer(layer, channels)
+
+% sometimes the layer does not contain any reference from layer to channel
+% This function add a 'channel' field to the layer data if it does not
+% exist
+for i = 1:length(layer)
+    for j=1:length(channels)
+        layer(i).channel(j).frequency = channels(j);
+    end
+end
 end
 
 function p = convertExcludeToPolygon(exclude, timestamps)
@@ -634,4 +646,47 @@ fprintf(fid,'\t\t}\n');
 fprintf(fid,'\t}\n');
 fprintf(fid,'}\n');
 fclose(fid);
+end
+
+function  channels = getchannels(school, layer, x, e)
+
+k=1;
+if ~isempty(layer) && isfield(layer,'channel')
+    for i=1:length(layer)
+        for j=1:length(layer(i).channel)
+            dum(k)  = string(layer(i).channel(j).frequency);
+            k=k+1;
+        end
+    end
+    
+end
+
+if ~isempty(school) && isfield(school,'channel')
+    for i=1:length(school)
+        for j=1:length(school(i).channel)
+            dum(k)  = string(school(i).channel(j).frequency);
+            k=k+1;
+        end
+    end
+end
+
+if ~isempty(e) && isfield(e,'channel')
+    for i=1:length(e)
+        for j=1:length(e(i).channel)
+            dum(k)  = string(e(i).channel(j).frequency);
+            k=k+1;
+        end
+    end
+end
+
+if ~isempty(x) && isfield(x,'channel')
+    for i=1:length(x)
+        for j=1:length(x(i).channel)
+            dum(k)  = string(x(i).channel(j).frequency);
+            k=k+1;
+        end
+    end
+end
+channels = unique(dum);
+
 end
