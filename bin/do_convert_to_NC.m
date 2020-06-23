@@ -32,7 +32,7 @@ dat.data(1).region_provenance = 'Converted from LSSS scrutiny';
 dat.group(1).region_provenance = "LSSS";
 dat.group(1).region_comment = "";
 
-dat.group(1).region_type = "Analysis";
+dat.group(1).region_type = "analysis";
 
 % Path to the example data
 whr = which('LSSSreader_readsnapfiles');
@@ -69,6 +69,6 @@ for file=1%:size(files.F,1)
     % Create cdl file
     numRegions = convertWorkToNC(snap, raw, NCfile, 38000,dat);
     % Create NC file
-    str = ['"C:\Program Files\netCDF 4.7.4\bin\ncgen" ',NCfile];
+    str = ['"C:\Program Files\netCDF 4.7.4\bin\ncgen" -b ',NCfile];
     system(str)
 end
