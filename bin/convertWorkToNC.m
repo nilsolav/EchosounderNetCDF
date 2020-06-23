@@ -95,8 +95,7 @@ function numRegions = convertWorkToNC(work, raw, NCfile, frequency, dat,varargin
 
     if numRegions > 0
            % Create and open NC file
-        fid = fopen(NCfile, 'w');
-             
+            
         % Get data
                 % Extract region data
         category_ids = 1;
@@ -105,7 +104,7 @@ function numRegions = convertWorkToNC(work, raw, NCfile, frequency, dat,varargin
 %             data=data_sub;
 %         end
         if p.Results.exportSchools&&~isempty(school)
-            [data,category_ids] = writeRegions(fid, school, timestamps, regionId,  1, frequency, dat,category_ids);
+            [data,category_ids] = writeRegions(school, timestamps, regionId,  1, frequency, dat,category_ids);
             % Concatenate
         end
 %         if p.Results.exportErased&&~isempty(e)
@@ -116,252 +115,15 @@ function numRegions = convertWorkToNC(work, raw, NCfile, frequency, dat,varargin
 %         end
         
         % Concatenate region data
+        writecdl(NCfile,data,dat)
         
-
-
-        % Add metadata
-        
-        % netcdf mask {
-        %     :date_created = "20190819T134900Z";
-        %     :mask_convention_version = "0.1";
-        %     :mask_convention_name = "SONAR-netCDF4";
-        %     :mask_convention_authority = "ICES, IMR";
-        %     :rights = "Unrestricted rights";
-        %     :license = "None";
-        %     :Conventions = "CF-1.7, ACDD-1.3, SONAR-netCDF4-2.0";
-        %     :keywords = "scrutinisation mask, echosounder";
-        %     :summary = "Contains definitions of echogram scrutiny masks";
-        %     :title = "Echogram scrutiny masks";
-	
-        fprintf(fid,'netcdf mask {\r\n');
-        fprintf(fid,['\t:date_created = "',dat.date_created,'";\n']);
-        fprintf(fid,['\t:mask_convention_version = "',dat.mask_convention_version,'";\n']);
-        fprintf(fid,['\t:mask_convention_name = "',dat.mask_convention_name,'";\n']);
-        fprintf(fid,['\t:mask_convention_authority = "',dat.mask_convention_authority,'";\n']);
-        fprintf(fid,['\t:rights = "',dat.rights,'";\n']);
-        fprintf(fid,['\t:license = "',dat.license,'";\n']);
-        fprintf(fid,['\t:Conventions = "',dat.Conventions,'";\n']);
-        fprintf(fid,['\t:keywords = "',dat.keywords,'";\n']);
-        fprintf(fid,['\t:summary = "',dat.summary,'";\n']);
-        fprintf(fid,['\t:title = "',dat.title,'";\n\n']);
-        
-        % Add Layer
-        
-        % group: Interpretation {
-        %     group: v1 { // subsequent versions of this interpretation get put in new subgroups, using the numbering system v1, v2, etc.
-        %         // SUGGESTIONS OF THINGS TO ADD:
-        %         // - consider a separate implementation of layers, as per LSSS
-        %         // - link to categorisation database and database version
-        %         // - name of echosounder files that the data came from??
-        % 
-        %         :version = "1"; // increasing integers
-        %         :version_save_date = "20190903T154023Z"; // ISO8601 format
-        %         :version_author = "GJM";
-        %         :version_comment = "Initial scrutiny";
-        fprintf(fid,'group: Interpretation {\n');
-        fprintf(fid,['\tgroup: v',dat.group(1).version,'{\n']);
-        fprintf(fid,['\t\t:version = "',dat.group(1).version,'";\n']);
-        fprintf(fid,['\t\t:version_save_date = "',dat.group(1).version_save_date,'";\n']);
-        fprintf(fid,['\t\t:version_author = "',dat.group(1).version_author,'";\n']);
-        fprintf(fid,['\t\t:version_comment = "',dat.group(1).version_comment,'";\n']);
-
-        % types:
-        %     // Note: empty_water == LSSS erased; no_data == LSSS excluded
-        %     byte enum region_t {empty_water = 0, no_data = 1, analysis = 2, track = 3, marker = 4};
-        %     // Storing 3D regions is not yet done, but we include the region dimension here anyway
-        %     byte enum region_dim_t {twoD = 0, threeD = 1};
-        %     float(*) mask_depth_t;
-        %     mask_depth_t(*) mask_depths_t;
-        %     uint64(*) mask_time_t; // ragged array for region ping times
-        
-        fprintf(fid,'\t\ttypes:\n');
-        fprintf(fid,'\t\t\tbyte enum region_t {empty_water = 0, no_data = 1, analysis = 2, track = 3, marker = 4};\n');
-        fprintf(fid,'\t\t\tbyte enum region_dim_t {twoD = 0, threeD = 1};\n');
-        fprintf(fid,'\t\t\tfloat(*) mask_depth_t;\n');
-        fprintf(fid,'\t\t\tmask_depth_t(*) mask_depths_t;\n');
-        fprintf(fid,'\t\t\tuint64(*) mask_time_t;\n');
-
-        % dimensions:
-%        [dimensions, categories] = getDimensions(layer, school, e ,x );
-%         dimensions.regions = 3; %// varies to suit data. Could also be unlimited
-%         dimensions.channels = 3; %// varies to suit data
-%         dimensions.categories = 5; %// varies to suit data.
-
-        fprintf(fid,'\t\tdimensions:\n');
-        fprintf(fid,['\t\t\tregions = ',num2str(length(data.mask_depths)),';\n']);
-        fprintf(fid,['\t\t\tchannels = ',num2str(length(data.channel_names)),';\n']);
-        fprintf(fid,['\t\t\tcategories = ',num2str(length(data.region_category_ids)),';\n']);
-        
-        %variables
-		fprintf(fid,'\t\tvariables:\n');
-        fprintf(fid,'			float sound_speed;\n');
-        fprintf(fid,'				sound_speed:long_name = "Sound speed used to convert echo time into range";\n');
-        fprintf(fid,'				sound_speed:standard_name = "speed_of_sound_in_sea_water";\n');
-        fprintf(fid,'				sound_speed:units = "m/s";\n');
-        fprintf(fid,'	\t\t\tsound_speed:valid_min = 0.0f;\n');
-        fprintf(fid,'\n');
-        fprintf(fid,'\t\t\t// The bounding box of each region\n');
-        fprintf(fid,'\t\t\tfloat min_depth(regions);\n');
-        fprintf(fid,'\t\t\t\tmin_depth:long_name = "Minimum depth for each region";\n');
-        fprintf(fid,'\t\t\t\tmin_depth:units = "m";\n');
-        fprintf(fid,'\t\t\t\tmin_depth:valid_min = 0.0f;\n');
-        fprintf(fid,'\t\t\tfloat max_depth(regions);\n');
-        fprintf(fid,'\t\t\t\tmax_depth:long_name = "Maximum depth for each regions";\n');
-        fprintf(fid,'\t\t\t\tmax_depth:units = "m";\n');
-        fprintf(fid,'\t\t\t\tmax_depth:valid_min = 0.0f;\n');
-        fprintf(fid,'\t\t\tuint64 start_time(regions);\n');
-        fprintf(fid,'\t\t\t\tstart_time:long_name = "Timestamp of the earliest data point in each region";\n');
-        fprintf(fid,'\t\t\t\tstart_time:units = "milliseconds since 1601-01-01 00:00:00Z";\n');
-        fprintf(fid,'\t\t\t\tstart_time:axis = "T";\n');
-        fprintf(fid,'\t\t\t\tstart_time:calendar = "gregorian";\n');
-        fprintf(fid,'\t\t\t\tstart_time:standard_name = "time";\n');
-        fprintf(fid,'\t\t\tuint64 end_time(regions);\n');
-        fprintf(fid,'\t\t\t\tend_time:long_name = "Timestamp of the latest data point in each region";\n');
-        fprintf(fid,'\t\t\t\tend_time:units = "milliseconds since 1601-01-01 00:00:00Z";\n');
-        fprintf(fid,'\t\t\t\tend_time:axis = "T";\n');
-        fprintf(fid,'\t\t\t\tend_time:calendar = "gregorian";\n');
-        fprintf(fid,'\t\t\t\tend_time:standard_name = "time";\n');
-        fprintf(fid,'\t\t\t\t\n');
-        fprintf(fid,'\t\t\tregion_dim_t region_dimension; \n');
-        fprintf(fid,'\t\t\t\tregion_dimension:long_name = "Region dimension";\n');
-        fprintf(fid,'\n');
-        fprintf(fid,'\t\t\tint region_id(regions);\n');
-        fprintf(fid,'\t\t\t\tregion_id:long_name = "Dataset-unique identification number for each region";\n');
-        fprintf(fid,'\t\t\tstring region_name(regions);\n');
-        fprintf(fid,'\t\t\t\tregion_name:long_name = "Name of each region";\n');
-        fprintf(fid,'\t\t\t\tregion_name:_Encoding = "utf-8";\n');
-        fprintf(fid,'\t\t\tstring region_provenance(regions);\n');
-        fprintf(fid,'\t\t\t\tregion_provenance:long_name = "Provenance of each region"; \n');
-        fprintf(fid,'\t\t\t\tregion_provenance:_Encoding = "utf-8";\n');
-        fprintf(fid,'\t\t\tstring region_comment(regions);\n');
-        fprintf(fid,'\t\t\t\tregion_comment:long_name = "Comment for each region";\n');
-        fprintf(fid,'\t\t\t\tregion_comment:_Encoding = "utf-8";\n');
-        fprintf(fid,'\t\t\tint region_order(regions);\n');
-        fprintf(fid,'\t\t\t\tregion_order:long_name = "The stacking order of the region";\n');
-        fprintf(fid,'\t\t\t\tregion_order:comment = "Regions of the same order cannot overlap";\n');
-        fprintf(fid,'\t\t\tregion_t region_type(regions);\n');
-        fprintf(fid,'\t\t\t\tregion_type:long_name = "Region type";\n');
-        fprintf(fid,'\t\t\t\n');
-        fprintf(fid,'\t\t\t// The acosutic categories. Each layer may have several categories and proportions.\n');
-        fprintf(fid,'\t\t\tstring region_category_names(categories);\n');
-        fprintf(fid,'\t\t\t\tregion_category_names:long_name = "Categorisation name";\n');
-        fprintf(fid,'\t\t\t\tregion_category_names:_Encoding = "utf-8";\n');
-        fprintf(fid,'\t\t\tfloat region_category_proportions(categories);\n');
-        fprintf(fid,'\t\t\t\tregion_category_proportions:long_name = "Proportion of backscatter for the categorisation";\n');
-        fprintf(fid,'\t\t\t\tregion_category_proportions:value_range = 0.0f, 1.0f;\n');
-        fprintf(fid,'\t\t\tint region_category_ids(categories);\n');
-        fprintf(fid,'\t\t\t\tregion_category_ids:long_name = "region_id of this categorisation and proportion";\n');
-        fprintf(fid,'\t\t\t\n');
-        fprintf(fid,'\t\t\tstring channel_names(channels);\n');
-        fprintf(fid,'\t\t\t\tchannel_names:long_name = "Echosounder channel names";\n');
-        fprintf(fid,'\t\t\t\tchannel_names:_Encoding = "utf-8";\n');
-        fprintf(fid,'\t\t\tuint region_channels(regions);\n');
-        fprintf(fid,'\t\t\t\tregion_channels:long_name = "Echosounder channels that this region applies to";\n');
-        fprintf(fid,'\t\t\t\tregion_channels:description = "Bit mask derived from channel_names (index 1 of channel_names = bit 1, index 2 = bit 2, etc). Set bits in excess of the number of channels are to be ignored.";\n');
-        fprintf(fid,'\t\t\t\tregion_channels:_FillValue = 4294967295; // 2^32-1\n');
-        fprintf(fid,'\t\t\t\t\n');
-        fprintf(fid,'\t\t\tmask_time_t mask_times(regions);\n');
-        fprintf(fid,'\t\t\t\tmask_times:long_name = "Timestamp of each mask point";\n');
-        fprintf(fid,'\t\t\t\tmask_times:units = "milliseconds since 1601-01-01 00:00:00Z";\n');
-        fprintf(fid,'\t\t\t\tmask_times:axis = "T";\n');
-        fprintf(fid,'\t\t\t\tmask_times:calendar = "gregorian";\n');
-        fprintf(fid,'\t\t\t\tmask_times:standard_name = "time";\n');
-        fprintf(fid,'\t\t\tmask_depths_t mask_depths(regions);\n');
-        fprintf(fid,'\t\t\t\tmask_depths:long_name = "Depth pairs of mask";\n');
-        fprintf(fid,'\t\t\t\tmask_depths:units = "m";\n');
-        fprintf(fid,'\t\t\t\tmask_depths:valid_min = 0.0f;\n');
-        
-        % Write region data to cdl file
-        fprintf(fid,'\n\t\tdata:\n');
-        fprintf(fid,'\t\t\tregion_dimension = twoD;\n');
-        fprintf(fid,'\t\t\tsound_speed = 1496;\n');
-        str = ['\t\t\tmin_depth =  ',num2str(data.min_depth,'%.1f, ')];
-        fprintf(fid,[str(1:end-1),';\n']);
-        str = ['\t\t\tmax_depth =  ',num2str(data.max_depth,'%.1f, ')];
-        fprintf(fid,[str(1:end-1),';\n']);
-        str = ['\t\t\tstart_time = ',num2str(data.start_time,'%i, ')];
-        fprintf(fid,[str(1:end-1),';\n']);
-        str = ['\t\t\tend_time = ',num2str(data.end_time,'%i, ')];
-        fprintf(fid,[str(1:end-1),';\n']);
-        str = ['\t\t\tregion_id = ',num2str(data.region_id,'%i, ')];
-        fprintf(fid,[str(1:end-1),';\n']);
-        str0 = char(strjoin(data.region_name,'","'));
-        str = ['region_name = "',str0,'"'];
-        fprintf(fid,'\t\t\t%s;\n',str);
-        str0 = char(strjoin(data.region_provenance,'", "'));
-        str = ['region_provenance = "',str0,'"'];
-        fprintf(fid,'\t\t\t%s;\n',str);
-        str0 = char(strjoin(data.region_comment,'", "'));
-        str = ['region_comment = "',str0,'"'];
-        fprintf(fid,'\t\t\t%s;\n',str);
-        str0 = char(strjoin(data.region_category_names,'", "'));
-        str = ['region_category_names = "',str0,'"'];
-        fprintf(fid,'\t\t\t%s;\n',str);
-        str = ['region_category_proportions = ',num2str(data.region_category_proportions,'%.1f, ')];
-        str(end) = ';';
-        fprintf(fid,'\t\t\t%s\n',str);
-        str = ['region_category_ids = ',num2str(data.region_category_ids,'%i, ')];
-        str(end) = ';';
-        fprintf(fid,'\t\t\t%s\n',str);
-        str0 = char(strjoin(data.region_type,', '));
-        str = ['region_type = ',str0];
-        fprintf(fid,'\t\t\t%s;\n',str);
-        str0 = char(strjoin(data.channel_names,'", "'));
-        str = ['channel_names = "',str0,'"'];
-        fprintf(fid,'\t\t\t%s;\n',str);
-        str = ['region_channels = ',num2str(data.region_channels,'%i, ')];
-        str(end) = ';';
-        fprintf(fid,'\t\t\t%s\n',str);
-        % Iterate mask times
-        for i = 1:length(data.mask_times)
-            if i==1
-                fprintf(fid,'\t\t\t%s','mask_times = {');
-            else
-                fprintf(fid,'\t\t\t%s','             {');
-            end
-            for j = 1:length(data.mask_times{i})
-                fprintf(fid,num2str(data.mask_times{i}{j}));
-                if j<length(data.mask_times{i})
-                    fprintf(fid,', ');
-                end
-            end
-            if i<length(data.mask_times)
-                fprintf(fid,'},\n');
-            else
-                fprintf(fid,'};\n');
-            end
-        end
-        % Iterate mask depths
-        fprintf(fid,'\t\t\t%s','mask_depths = {');
-        for i = 1:length(data.mask_depths)
-            for j = 1:length(data.mask_depths{i})
-               fprintf(fid,'{');
-                str = num2str(cell2mat(data.mask_depths{i}{j}),'%.1f, ');
-                fprintf(fid,str(1:end-1));
-                if j<length(data.mask_times{i})
-                    fprintf(fid,'}, ');
-                else
-                    fprintf(fid,'}');
-                end
-            end
-            if i<length(data.mask_depths)
-                fprintf(fid,'}, {');
-            else
-                fprintf(fid,'};');
-            end
-        end
-        fprintf(fid,'\n');
-        fprintf(fid,'\t\t}\n');
-        fprintf(fid,'\t}\n');
-        fprintf(fid,'}\n');
-        fclose(fid);
     end
 end
 
 %mergestructs = @(x,y) cell2struct([struct2cell(x);struct2cell(y)],[fieldnames(x);fieldnames(y)]);
 
 
-function [data,category_ids] = writeRegions(fid, region, timestamps, regionId, regionType, frequency,dat,category_ids)
+function [data,category_ids] = writeRegions(region, timestamps, regionId, regionType, frequency,dat,category_ids)
 
 % test data:
 % data.region_dimension = 'twoD';
@@ -756,3 +518,245 @@ ntTime = matlabSerialTime - ML_NT_OFFSET;
 end
 
 
+function writecdl(NCfile,data,dat)
+% this function writes the cdl file. This function can be replaced with
+% the HDF library to directly write these files.
+
+fid = fopen(NCfile, 'w');
+% Add metadata
+
+% netcdf mask {
+%     :date_created = "20190819T134900Z";
+%     :mask_convention_version = "0.1";
+%     :mask_convention_name = "SONAR-netCDF4";
+%     :mask_convention_authority = "ICES, IMR";
+%     :rights = "Unrestricted rights";
+%     :license = "None";
+%     :Conventions = "CF-1.7, ACDD-1.3, SONAR-netCDF4-2.0";
+%     :keywords = "scrutinisation mask, echosounder";
+%     :summary = "Contains definitions of echogram scrutiny masks";
+%     :title = "Echogram scrutiny masks";
+
+fprintf(fid,'netcdf mask {\r\n');
+fprintf(fid,['\t:date_created = "',dat.date_created,'";\n']);
+fprintf(fid,['\t:mask_convention_version = "',dat.mask_convention_version,'";\n']);
+fprintf(fid,['\t:mask_convention_name = "',dat.mask_convention_name,'";\n']);
+fprintf(fid,['\t:mask_convention_authority = "',dat.mask_convention_authority,'";\n']);
+fprintf(fid,['\t:rights = "',dat.rights,'";\n']);
+fprintf(fid,['\t:license = "',dat.license,'";\n']);
+fprintf(fid,['\t:Conventions = "',dat.Conventions,'";\n']);
+fprintf(fid,['\t:keywords = "',dat.keywords,'";\n']);
+fprintf(fid,['\t:summary = "',dat.summary,'";\n']);
+fprintf(fid,['\t:title = "',dat.title,'";\n\n']);
+
+% Add Layer
+
+% group: Interpretation {
+%     group: v1 { // subsequent versions of this interpretation get put in new subgroups, using the numbering system v1, v2, etc.
+%         // SUGGESTIONS OF THINGS TO ADD:
+%         // - consider a separate implementation of layers, as per LSSS
+%         // - link to categorisation database and database version
+%         // - name of echosounder files that the data came from??
+%
+%         :version = "1"; // increasing integers
+%         :version_save_date = "20190903T154023Z"; // ISO8601 format
+%         :version_author = "GJM";
+%         :version_comment = "Initial scrutiny";
+fprintf(fid,'group: Interpretation {\n');
+fprintf(fid,['\tgroup: v',dat.group(1).version,'{\n']);
+fprintf(fid,['\t\t:version = "',dat.group(1).version,'";\n']);
+fprintf(fid,['\t\t:version_save_date = "',dat.group(1).version_save_date,'";\n']);
+fprintf(fid,['\t\t:version_author = "',dat.group(1).version_author,'";\n']);
+fprintf(fid,['\t\t:version_comment = "',dat.group(1).version_comment,'";\n']);
+
+% types:
+%     // Note: empty_water == LSSS erased; no_data == LSSS excluded
+%     byte enum region_t {empty_water = 0, no_data = 1, analysis = 2, track = 3, marker = 4};
+%     // Storing 3D regions is not yet done, but we include the region dimension here anyway
+%     byte enum region_dim_t {twoD = 0, threeD = 1};
+%     float(*) mask_depth_t;
+%     mask_depth_t(*) mask_depths_t;
+%     uint64(*) mask_time_t; // ragged array for region ping times
+
+fprintf(fid,'\t\ttypes:\n');
+fprintf(fid,'\t\t\tbyte enum region_t {empty_water = 0, no_data = 1, analysis = 2, track = 3, marker = 4};\n');
+fprintf(fid,'\t\t\tbyte enum region_dim_t {twoD = 0, threeD = 1};\n');
+fprintf(fid,'\t\t\tfloat(*) mask_depth_t;\n');
+fprintf(fid,'\t\t\tmask_depth_t(*) mask_depths_t;\n');
+fprintf(fid,'\t\t\tuint64(*) mask_time_t;\n');
+
+% dimensions:
+%        [dimensions, categories] = getDimensions(layer, school, e ,x );
+%         dimensions.regions = 3; %// varies to suit data. Could also be unlimited
+%         dimensions.channels = 3; %// varies to suit data
+%         dimensions.categories = 5; %// varies to suit data.
+
+fprintf(fid,'\t\tdimensions:\n');
+fprintf(fid,['\t\t\tregions = ',num2str(length(data.mask_depths)),';\n']);
+fprintf(fid,['\t\t\tchannels = ',num2str(length(data.channel_names)),';\n']);
+fprintf(fid,['\t\t\tcategories = ',num2str(length(data.region_category_ids)),';\n']);
+
+%variables
+fprintf(fid,'\t\tvariables:\n');
+fprintf(fid,'			float sound_speed;\n');
+fprintf(fid,'				sound_speed:long_name = "Sound speed used to convert echo time into range";\n');
+fprintf(fid,'				sound_speed:standard_name = "speed_of_sound_in_sea_water";\n');
+fprintf(fid,'				sound_speed:units = "m/s";\n');
+fprintf(fid,'	\t\t\tsound_speed:valid_min = 0.0f;\n');
+fprintf(fid,'\n');
+fprintf(fid,'\t\t\t// The bounding box of each region\n');
+fprintf(fid,'\t\t\tfloat min_depth(regions);\n');
+fprintf(fid,'\t\t\t\tmin_depth:long_name = "Minimum depth for each region";\n');
+fprintf(fid,'\t\t\t\tmin_depth:units = "m";\n');
+fprintf(fid,'\t\t\t\tmin_depth:valid_min = 0.0f;\n');
+fprintf(fid,'\t\t\tfloat max_depth(regions);\n');
+fprintf(fid,'\t\t\t\tmax_depth:long_name = "Maximum depth for each regions";\n');
+fprintf(fid,'\t\t\t\tmax_depth:units = "m";\n');
+fprintf(fid,'\t\t\t\tmax_depth:valid_min = 0.0f;\n');
+fprintf(fid,'\t\t\tuint64 start_time(regions);\n');
+fprintf(fid,'\t\t\t\tstart_time:long_name = "Timestamp of the earliest data point in each region";\n');
+fprintf(fid,'\t\t\t\tstart_time:units = "milliseconds since 1601-01-01 00:00:00Z";\n');
+fprintf(fid,'\t\t\t\tstart_time:axis = "T";\n');
+fprintf(fid,'\t\t\t\tstart_time:calendar = "gregorian";\n');
+fprintf(fid,'\t\t\t\tstart_time:standard_name = "time";\n');
+fprintf(fid,'\t\t\tuint64 end_time(regions);\n');
+fprintf(fid,'\t\t\t\tend_time:long_name = "Timestamp of the latest data point in each region";\n');
+fprintf(fid,'\t\t\t\tend_time:units = "milliseconds since 1601-01-01 00:00:00Z";\n');
+fprintf(fid,'\t\t\t\tend_time:axis = "T";\n');
+fprintf(fid,'\t\t\t\tend_time:calendar = "gregorian";\n');
+fprintf(fid,'\t\t\t\tend_time:standard_name = "time";\n');
+fprintf(fid,'\t\t\t\t\n');
+fprintf(fid,'\t\t\tregion_dim_t region_dimension; \n');
+fprintf(fid,'\t\t\t\tregion_dimension:long_name = "Region dimension";\n');
+fprintf(fid,'\n');
+fprintf(fid,'\t\t\tint region_id(regions);\n');
+fprintf(fid,'\t\t\t\tregion_id:long_name = "Dataset-unique identification number for each region";\n');
+fprintf(fid,'\t\t\tstring region_name(regions);\n');
+fprintf(fid,'\t\t\t\tregion_name:long_name = "Name of each region";\n');
+fprintf(fid,'\t\t\t\tregion_name:_Encoding = "utf-8";\n');
+fprintf(fid,'\t\t\tstring region_provenance(regions);\n');
+fprintf(fid,'\t\t\t\tregion_provenance:long_name = "Provenance of each region"; \n');
+fprintf(fid,'\t\t\t\tregion_provenance:_Encoding = "utf-8";\n');
+fprintf(fid,'\t\t\tstring region_comment(regions);\n');
+fprintf(fid,'\t\t\t\tregion_comment:long_name = "Comment for each region";\n');
+fprintf(fid,'\t\t\t\tregion_comment:_Encoding = "utf-8";\n');
+fprintf(fid,'\t\t\tint region_order(regions);\n');
+fprintf(fid,'\t\t\t\tregion_order:long_name = "The stacking order of the region";\n');
+fprintf(fid,'\t\t\t\tregion_order:comment = "Regions of the same order cannot overlap";\n');
+fprintf(fid,'\t\t\tregion_t region_type(regions);\n');
+fprintf(fid,'\t\t\t\tregion_type:long_name = "Region type";\n');
+fprintf(fid,'\t\t\t\n');
+fprintf(fid,'\t\t\t// The acosutic categories. Each layer may have several categories and proportions.\n');
+fprintf(fid,'\t\t\tstring region_category_names(categories);\n');
+fprintf(fid,'\t\t\t\tregion_category_names:long_name = "Categorisation name";\n');
+fprintf(fid,'\t\t\t\tregion_category_names:_Encoding = "utf-8";\n');
+fprintf(fid,'\t\t\tfloat region_category_proportions(categories);\n');
+fprintf(fid,'\t\t\t\tregion_category_proportions:long_name = "Proportion of backscatter for the categorisation";\n');
+fprintf(fid,'\t\t\t\tregion_category_proportions:value_range = 0.0f, 1.0f;\n');
+fprintf(fid,'\t\t\tint region_category_ids(categories);\n');
+fprintf(fid,'\t\t\t\tregion_category_ids:long_name = "region_id of this categorisation and proportion";\n');
+fprintf(fid,'\t\t\t\n');
+fprintf(fid,'\t\t\tstring channel_names(channels);\n');
+fprintf(fid,'\t\t\t\tchannel_names:long_name = "Echosounder channel names";\n');
+fprintf(fid,'\t\t\t\tchannel_names:_Encoding = "utf-8";\n');
+fprintf(fid,'\t\t\tuint region_channels(regions);\n');
+fprintf(fid,'\t\t\t\tregion_channels:long_name = "Echosounder channels that this region applies to";\n');
+fprintf(fid,'\t\t\t\tregion_channels:description = "Bit mask derived from channel_names (index 1 of channel_names = bit 1, index 2 = bit 2, etc). Set bits in excess of the number of channels are to be ignored.";\n');
+fprintf(fid,'\t\t\t\tregion_channels:_FillValue = 4294967295; // 2^32-1\n');
+fprintf(fid,'\t\t\t\t\n');
+fprintf(fid,'\t\t\tmask_time_t mask_times(regions);\n');
+fprintf(fid,'\t\t\t\tmask_times:long_name = "Timestamp of each mask point";\n');
+fprintf(fid,'\t\t\t\tmask_times:units = "milliseconds since 1601-01-01 00:00:00Z";\n');
+fprintf(fid,'\t\t\t\tmask_times:axis = "T";\n');
+fprintf(fid,'\t\t\t\tmask_times:calendar = "gregorian";\n');
+fprintf(fid,'\t\t\t\tmask_times:standard_name = "time";\n');
+fprintf(fid,'\t\t\tmask_depths_t mask_depths(regions);\n');
+fprintf(fid,'\t\t\t\tmask_depths:long_name = "Depth pairs of mask";\n');
+fprintf(fid,'\t\t\t\tmask_depths:units = "m";\n');
+fprintf(fid,'\t\t\t\tmask_depths:valid_min = 0.0f;\n');
+
+% Write region data to cdl file
+fprintf(fid,'\n\t\tdata:\n');
+fprintf(fid,'\t\t\tregion_dimension = twoD;\n');
+fprintf(fid,'\t\t\tsound_speed = 1496;\n');
+str = ['\t\t\tmin_depth =  ',num2str(data.min_depth,'%.1f, ')];
+fprintf(fid,[str(1:end-1),';\n']);
+str = ['\t\t\tmax_depth =  ',num2str(data.max_depth,'%.1f, ')];
+fprintf(fid,[str(1:end-1),';\n']);
+str = ['\t\t\tstart_time = ',num2str(data.start_time,'%i, ')];
+fprintf(fid,[str(1:end-1),';\n']);
+str = ['\t\t\tend_time = ',num2str(data.end_time,'%i, ')];
+fprintf(fid,[str(1:end-1),';\n']);
+str = ['\t\t\tregion_id = ',num2str(data.region_id,'%i, ')];
+fprintf(fid,[str(1:end-1),';\n']);
+str0 = char(strjoin(data.region_name,'","'));
+str = ['region_name = "',str0,'"'];
+fprintf(fid,'\t\t\t%s;\n',str);
+str0 = char(strjoin(data.region_provenance,'", "'));
+str = ['region_provenance = "',str0,'"'];
+fprintf(fid,'\t\t\t%s;\n',str);
+str0 = char(strjoin(data.region_comment,'", "'));
+str = ['region_comment = "',str0,'"'];
+fprintf(fid,'\t\t\t%s;\n',str);
+str0 = char(strjoin(data.region_category_names,'", "'));
+str = ['region_category_names = "',str0,'"'];
+fprintf(fid,'\t\t\t%s;\n',str);
+str = ['region_category_proportions = ',num2str(data.region_category_proportions,'%.1f, ')];
+str(end) = ';';
+fprintf(fid,'\t\t\t%s\n',str);
+str = ['region_category_ids = ',num2str(data.region_category_ids,'%i, ')];
+str(end) = ';';
+fprintf(fid,'\t\t\t%s\n',str);
+str0 = char(strjoin(data.region_type,', '));
+str = ['region_type = ',str0];
+fprintf(fid,'\t\t\t%s;\n',str);
+str0 = char(strjoin(data.channel_names,'", "'));
+str = ['channel_names = "',str0,'"'];
+fprintf(fid,'\t\t\t%s;\n',str);
+str = ['region_channels = ',num2str(data.region_channels,'%i, ')];
+str(end) = ';';
+fprintf(fid,'\t\t\t%s\n',str);
+% Iterate mask times
+for i = 1:length(data.mask_times)
+    if i==1
+        fprintf(fid,'\t\t\t%s','mask_times = {');
+    else
+        fprintf(fid,'\t\t\t%s','             {');
+    end
+    for j = 1:length(data.mask_times{i})
+        fprintf(fid,num2str(data.mask_times{i}{j}));
+        if j<length(data.mask_times{i})
+            fprintf(fid,', ');
+        end
+    end
+    if i<length(data.mask_times)
+        fprintf(fid,'},\n');
+    else
+        fprintf(fid,'};\n');
+    end
+end
+% Iterate mask depths
+fprintf(fid,'\t\t\t%s','mask_depths = {');
+for i = 1:length(data.mask_depths)
+    for j = 1:length(data.mask_depths{i})
+        fprintf(fid,'{');
+        str = num2str(cell2mat(data.mask_depths{i}{j}),'%.1f, ');
+        fprintf(fid,str(1:end-1));
+        if j<length(data.mask_times{i})
+            fprintf(fid,'}, ');
+        else
+            fprintf(fid,'}');
+        end
+    end
+    if i<length(data.mask_depths)
+        fprintf(fid,'}, {');
+    else
+        fprintf(fid,'};');
+    end
+end
+fprintf(fid,'\n');
+fprintf(fid,'\t\t}\n');
+fprintf(fid,'\t}\n');
+fprintf(fid,'}\n');
+fclose(fid);
+end
