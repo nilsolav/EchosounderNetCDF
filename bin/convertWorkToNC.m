@@ -94,29 +94,26 @@ function numRegions = convertWorkToNC(work, raw, NCfile, frequency, dat,varargin
     regionId = 0;
 
     if numRegions > 0
-           % Create and open NC file
-            
-        % Get data
-                % Extract region data
+        % Extract region data
         category_ids = 1;
-%         if p.Results.exportLayers&&~isempty(layer)
-%             [data_sub,category_ids] = writeRegions(fid, layer, timestamps, regionId, 1, frequency, dat,category_ids);
-%             data=data_sub;
-%         end
+        if p.Results.exportLayers&&~isempty(layer)
+            [data_layer,category_ids] = writeRegions(fid, layer, timestamps, regionId, 1, frequency, dat,category_ids);
+            %data=data_sub;
+        end
         if p.Results.exportSchools&&~isempty(school)
             [data,category_ids] = writeRegions(school, timestamps, regionId,  1, frequency, dat,category_ids);
             % Concatenate
         end
-%         if p.Results.exportErased&&~isempty(e)
-%             [data_e,category_ids] = writeRegions(fid, e, timestamps, regionId, 4, frequency,category_ids);
-%         end
-%         if p.Results.exportExcluded||~isempty(x)
-%             writeRegions(fid, x, timestamps, regionId, 0, frequency,category_ids);
-%         end
-        
+        if p.Results.exportErased&&~isempty(e)
+            [data_e,category_ids] = writeRegions(fid, e, timestamps, regionId, 4, frequency,category_ids);
+        end
+        if p.Results.exportExcluded||~isempty(x)
+            [data_x,category_ids] = writeRegions(fid, x, timestamps, regionId, 0, frequency,category_ids);
+        end
         % Concatenate region data
-        writecdl(NCfile,data,dat)
         
+        % Write cdl file
+        writecdl(NCfile,data,dat)
     end
 end
 
@@ -124,54 +121,6 @@ end
 
 
 function [data,category_ids] = writeRegions(region, timestamps, regionId, regionType, frequency,dat,category_ids)
-
-% test data:
-% data.region_dimension = 'twoD';
-% data.sound_speed = 1496;
-% data.min_depth =  [0.0, 20.5, 55.0];
-% data.max_depth = [10.0, 42.0, 125.2];
-% data.start_time = [13189164120001, 13189164121000, 13189164124000];
-% data.end_time =  [13189164123004, 13189164124000, 13189164131000];
-% data.region_id = [1, 5, 234];
-% data.region_name = ["region1", "region2", ""];
-% data.region_provenance = ["KORONA-2.6.0;LSSS", "Echoview - template ABC", "Manual inspection"];
-% data.region_comment = ["", "", "whale!"];
-% data.region_category_names = ["herring", "krill", "seal", "lion", "platypus"];
-% data.region_category_proportions = [0.9, 0.1, 0.45, 0.40, 0.10];
-% data.region_category_ids = [1, 1, 234, 234, 234];
-% data.region_type =  ["analysis", "empty_water", "analysis"];
-% data.channel_names = ["18kHz WBT ABC","38kHz WBT ZYX", "120kHz GPT 123"];
-% data.region_channels = [5, 7, 7];
-% data.mask_times = {{13189164120001, 13189164121002, 13189164122003, 13189164123004}, ...
-%     {13189164121000, 13189164122000, 13189164123000, 13189164124000}, ...
-%     {13189164124000, 13189164125000, 13189164126000, 13189164127000, 13189164128000, 13189164129000, 13189164131000}};
-% data.mask_depths = {{{0.0, 15.0}, {0.0, 4.0, 5.0, 10.0}, {0.0, 10.0}, {0.0, 10.0}}, {{20.5, 25.0}, {30.5, 35.0}, {35.5, 40.0}, {40.0, 42.0}}, {{55.0, 105.0}, {60.0, 80.2, 100.6, 115.0}, {55.0, 107.0}, {55.0, 110.0}, {55.0, 115.6}, {55.0, 125.2}, {60, 115}}};
-% data2 = data;
-% clear data
-% Real data
-
-% Per region
-%     region_dimension = 'twoD';
-%     sound_speed = 1496;
-%     min_depth = [0.0, 20.5, 55.0];
-%     max_depth = [10.0, 42.0, 125.2];
-%     start_time = 13189164120001;
-%     end_time =  13189164123004,
-%     region_id = 1;
-%     region_name = "region1";
-%     region_provenance = 'KORONA-2.6.0;LSSS'
-%     region_comment = "";
-%     region_category_names = "herring";
-%     region_category_proportions = 0.9;
-%     region_category_ids = 1;
-%     region_type =  'analysis';
-%     channel_names = '38kHz WBT ABC';
-%     region_channels = 5;
-%     
-%     mask_times = {13189164120001, 13189164121002, 13189164122003, 13189164123004};
-%     mask_depths = {{0.0, 15.0}, {0.0, 4.0, 5.0, 10.0}, {0.0, 10.0}, {0.0, 10.0}};
-
-% Create id variable that increment by one at each new cat/channel
 
 % Get channel names
 k=1;
@@ -231,32 +180,8 @@ for j = 1:length(region)
         t = [min(t)-startPingInt/2 min(t)-startPingInt/2 max(t)+endPingInt/2 max(t)+endPingInt/2];
         d = [min(d) max(d) max(d) min(d)];
     end
-    
  
-    
-    % Work out which channel has the requested frequency. If it is not
-    % there, then skip that region in the EVR file.
-    
-    % Channel to freq information is only available in the layer and
-    % school structures. Exclude regions apply across all frequencies.
-    % Erased regions are channel specific.
-    
-%     channel = NaN;
-%     if isfield(region(j), 'channel') && ~isempty(region(j).channel)
-%         if isfield(region(j).channel(1), 'frequency')
-%             for k = 1:length(region(j).channel)
-%                 if strcmp(region(j).channel(k).frequency, frequency)
-%                     channel = k;
-%                     break;
-%                 end
-%             end
-%         end
-%     end
-
-    % assumes that there is only 1 species classification (if not, it
-    % uses the first one). NOH: I assume this is a special case for
-    % ev files? We need to expand and use the category_ids, right?
-    
+    % Extract the information per channel
     if isfield(region(j), 'channel')
         % bit map for the channels this region applies to [1 1 0 1] etc.
         dum = false(1, length(region(j).channel));
@@ -418,16 +343,6 @@ function e = convertMaskToPolygon(erased, channelID)
     e = rmfield(e, {'X', 'Y'});
 end
 
-% function s = pointToEchoview(timestamp, depth)
-%     % convert timestamp and depth into the Echoview .evr file form
-% 
-%     d = datestr(timestamp, 'yyyymmdd');
-%     t = datestr(timestamp, 'HHMMSSFFF');
-% 
-%     s = sprintf('%s %s0 %f', d, t, depth);
-% 
-% end
-
 function t = getPingTimes(rawDir, fname)
 
     % go through the raw file and pick out the timestamps of the RAW
@@ -463,46 +378,6 @@ function t = getPingTimes(rawDir, fname)
     t = unique(t);
 
 end
-
-% function [dim,categories] = getDimensions(layer, school, e ,x )
-% %dimensions(1)
-% 
-% %     regions = 3; // varies to suit data. Could also be unlimited
-% %     channels = 3; // varies to suit data
-% %     categories = 5; // varies to suit data.
-% 
-% % Sum the number of regions
-% dim.regions = length(layer) + length(school) + length(e) + length(x);
-% 
-% % Get the number of unique categories
-% k=1;
-% type = {'layer','school','e','x'};
-% mch=1;
-% for i=1:4
-%     eval(['region=',type{i},';'])
-%     for j=1:length(region)
-%         if isfield(region(j), 'channel') 
-%             % if the current region has species allocated to it, use that,
-%             % otherwise use a 'null' species.
-% 
-%             % Find the number of channels
-%             mch = max(mch,length(region(j).channel));
-%             for ch=1:length(region(j).channel)
-%             if isfield(region(j).channel(ch), 'species')
-%                 cat{k}=region(j).channel(ch).species(1).speciesID;
-%                 k=k+1;
-%             end
-%             end
-%         end
-%     end
-% end
-% 
-% dim.channels = mch;
-% categories = unique(cat);
-% dim.categories = length(categories);
-% 
-% end
-
 
 function ntTime = time2NTtime(matlabSerialTime)
 % offset in days between ML serial time and NT time
