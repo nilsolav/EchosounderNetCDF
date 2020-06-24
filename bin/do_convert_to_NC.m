@@ -11,6 +11,9 @@ dat.keywords = 'scrutinisation mask, echosounder';
 dat.summary = 'Contains definitions of echogram scrutiny masks';
 dat.title = 'Echogram scrutiny masks';
 
+%Path to ncgen
+str0 = ['"C:\Program Files\netCDF 4.7.4\bin\ncgen" -b '];
+
 % group: Interpretation {
 %     group: v1 { // subsequent versions of this interpretation get put in new subgroups, using the numbering system v1, v2, etc.
 %         // SUGGESTIONS OF THINGS TO ADD:
@@ -51,7 +54,7 @@ files = LSSSreader_pairfiles(files);
 pl = true; % Set to false for plotting the masks only (without background echograms)
 %pl = false;
 
-for file=1%:size(files.F,1)
+for file=[1:7 9:size(files.F,1)]%LSSSreader fails on file 8. Blame Gavin.
     snap = files.F{file,1};
     work = files.F{file,2};
     raw  = files.F{file,3};
@@ -61,14 +64,10 @@ for file=1%:size(files.F,1)
     end
     
     NCfile = [snap(1:end-5),'.cdl'];
-    
-    % Store in working dir for now
-    [~,f1,f2]=fileparts(NCfile);
-    NCfile = [f1,f2];
-    
+    disp(NCfile)
     % Create cdl file
     numRegions = convertWorkToNC(snap, raw, NCfile, 38000,dat);
     % Create NC file
-    str = ['"C:\Program Files\netCDF 4.7.4\bin\ncgen" -b ',NCfile];
-    system(str)
+    str = [str0,NCfile];
+    system(str);
 end

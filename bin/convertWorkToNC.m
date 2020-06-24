@@ -16,9 +16,8 @@ parse(p, varargin{:});
 % Get scrutiny
 [school, layer, exclude, erased, info] = LSSSreader_readsnapfiles(work);
 
-
 % Get timestamps of all pings in current file
-if true % For debugging
+if true % Use false for debugging to avoid reading the raw files.
     rawName =raw;
     [rawDir,rawName,ex]=fileparts(raw);
     rawName = [rawName,ex];
@@ -115,11 +114,11 @@ if numRegions > 0
         data = mergeData(data,data_school,channels);
     end
     if p.Results.exportErased&&~isempty(e)
-        [data_e,category_ids,regionId] = writeRegions(e, timestamps, regionId, 4, category_ids, channels);
+        [data_e,category_ids,regionId] = writeRegions(e, timestamps, regionId, 4, dat, category_ids, channels);
         data = mergeData(data,data_e,channels);
     end
     if p.Results.exportExcluded&&~isempty(x)
-        [data_x,category_ids,regionId] = writeRegions(x, timestamps, regionId, 0, category_ids, channels);
+        [data_x,category_ids,regionId] = writeRegions(x, timestamps, regionId, 0, dat, category_ids, channels);
         data = mergeData(data,data_x,channels);
     end
     % Write cdl file
@@ -167,7 +166,10 @@ for j = 1:length(region)
     else
         endPingInt =  diff(timestamps(rightX:rightX+1)); % [days]
     end
-    
+    % Gavin: The x-value may be zero... I replaced with 1 to get the code
+    % running, but this needs to be checked:
+    region(j).x(region(j).x == 0)=1; % Hack!
+
     t = timestamps(region(j).x);
     d = region(j).y;
     
@@ -183,33 +185,35 @@ for j = 1:length(region)
     
     % Extract the information per channel
     if isfield(region(j), 'channel')
-        % bit map for the channels this region applies to [1 1 0 1] etc.
-        dum = false(1, length(region(j).channel));
-        for channel=1:length(region(j).channel) % Loop only existing channels
-            % if the current region has species allocated to it, use that,
-            % otherwise use a 'null' species ("").
-            if isfield(region(j).channel(channel), 'species')
-                for sp = 1:length(region(j).channel(channel).species)
-                    data.region_category_names(k) = ...
-                        string(region(j).channel(channel).species(sp).speciesID);
-                    data.region_category_proportions(k) = ...
-                        str2double(region(j).channel(channel).species(sp).fraction);
+        if ~isempty(region(j).channel)
+            % bit map for the channels this region applies to [1 1 0 1] etc.
+            dum = false(1, length(region(j).channel));
+            for channel=1:length(region(j).channel) % Loop only existing channels
+                % if the current region has species allocated to it, use that,
+                % otherwise use a 'null' species ("").
+                if isfield(region(j).channel(channel), 'species')
+                    for sp = 1:length(region(j).channel(channel).species)
+                        data.region_category_names(k) = ...
+                            string(region(j).channel(channel).species(sp).speciesID);
+                        data.region_category_proportions(k) = ...
+                            str2double(region(j).channel(channel).species(sp).fraction);
+                        data.region_category_ids(k) = category_ids;
+                        category_ids = category_ids + 1;
+                        k=k+1;
+                    end
+                else
+                    data.region_category_names(k) = "0";
+                    data.region_category_proportions(k) = 1;
                     data.region_category_ids(k) = category_ids;
                     category_ids = category_ids + 1;
                     k=k+1;
                 end
-            else
-                data.region_category_names(k) = "0";
-                data.region_category_proportions(k) = 1;
-                data.region_category_ids(k) = category_ids;
-                category_ids = category_ids + 1;
-                k=k+1;
+                % bit mask on which channel this belong to
+                dum = dum | data.channel_names == region(j).channel(channel).frequency;
             end
-            % bit mask on which channel this belong to
-            dum = dum | data.channel_names == region(j).channel(channel).frequency;
+            % Change the bit map to integer
+            data.region_channels(j) = bin2dec(num2str(dum(end:-1:1)));
         end
-        % Change the bit map to integer
-        data.region_channels(j) = bin2dec(num2str(dum(end:-1:1)));
     end
     % Bounding box
     data.min_depth(j) = min(region(j).y);
@@ -246,7 +250,7 @@ function data = mergeData(data1,data2,channels)
 % This function merges the data struct from different sources
 n1 = fieldnames(data1);
 n2 = fieldnames(data2);
-n  = unique([n1,n2]);
+n  = unique([n1',n2']);
 data = struct();
 
 for i = 1:length(n)
@@ -258,7 +262,7 @@ for i = 1:length(n)
             fld = [getfield(data1,n{i}) getfield(data2,n{i})];
         elseif isfield(data1,n{i})
             % Use fields from data1
-            fld = getfield(data2,n{i});
+            fld = getfield(data1,n{i});
         else 
             % Use fields from data2
             fld = getfield(data2,n{i});
@@ -680,6 +684,7 @@ end
 function  channels = getchannels(school, layer, x, e)
 
 k=1;
+dum=string();
 if ~isempty(layer) && isfield(layer,'channel')
     for i=1:length(layer)
         for j=1:length(layer(i).channel)
