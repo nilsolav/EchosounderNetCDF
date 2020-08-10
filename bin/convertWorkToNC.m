@@ -228,14 +228,16 @@ for j = 1:length(region)
     data.region_comment(j) = dat.group(1).region_comment;
     data.region_type(j) = dat.group(1).region_type;
     % Mask times
-    %c = unique(region(j).x);
     c = time2NTtime(interp1(1:length(timestamps),timestamps,unique(region(j).x)));
     data.mask_times{j} = num2cell(c);
+    % Mask unique ping numbers
+    p = unique(region(j).x);
     
     % Mask depths
     for n=1:length(c)
         % Sort the depths within this mask time
-        ind = region(j).x == c(n);
+        
+        ind = region(j).x == p(n);
         data.mask_depths{j}{n} = num2cell(sort(region(j).y(ind)));
     end
     if isfield(data,'channel_names')
