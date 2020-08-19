@@ -137,22 +137,31 @@ def getFiletime(dt):
 
 # get masks
 def get_masks(d, t, d_units, t_units, time_fixer, handle=None):
-    # Get time and ping array
-    #url = baseUrl + '/lsss/data/pings' + '/pingCount'
+    # Get time and ping array from visible view on echogram
+    url = baseUrl + '/lsss/module/PelagicEchogramModule/zoom'
+    response = requests.get(url).json()
+    t0 = response[0]['pingNumber']
+    t1 = response[1]['pingNumber']
+    tint = t1-t0+1
+    # Get the ping/time array for interpolation from region to LSSS shapes
+    # Example http://localhost:8000/lsss/data/pings?pingNumber=10&pingCount=100
+    url = baseUrl + '/lsss/data/pings?pingNumber=' + str(t0)+'&pingCount=' + str(tint)
+    # Get the list
+    ping_time = requests.get(url).json()
+    # Get time and ping lists
+    T = [nilz['time'] for nilz in ping_time]
+    P = [nilz['pingNumber'] for nilz in ping_time]
 
-    # Connect to the server and post the content
-    #response = requests.get(url)
-    
-    
     for i, r in enumerate(d):
+
+        # Get the time variables
 
         json_str = []
         # Yi: This part needs to be changed to add in missing time steps.
         for time, ranges in zip(t[i], r):
             min_max_vals = []
             # Ranges
-            ranges[0::2]
-            
+            # pdb.set_trace()
             for start, stop in zip(ranges[0::2], ranges[1::2]):
                 min_max_vals.append({"min": float(start), "max": float(stop)})
 
@@ -162,12 +171,11 @@ def get_masks(d, t, d_units, t_units, time_fixer, handle=None):
 
             json_str.append({"time": getFiletime(time).isoformat()+'Z',
                              "depthRanges": min_max_vals})
-        # http://localhost:8000/lsss/data/pings?pingNumber=1
-        # http://localhost:8000/lsss/data/pings?pingNumber=10&pingCount=100
-        # http://localhost:8000/lsss/module/PelagicEchogramModule/current-echogram-point
-        
-        #                      /lsss/database/report?reports=0,5&allSpecies=true
-        pdb.set_trace()
+
+        import scipy.interpolate
+        #TP = scipy.interpolate.interp1d(T, P)
+        #PT = scipy.interpolate.interp1d(P, T)
+
         if json_str:
             post('/lsss/module/PelagicEchogramModule/school-mask',
                         json = json_str)
