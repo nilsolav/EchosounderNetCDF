@@ -37,7 +37,7 @@ munits.registry[datetime.datetime] = converter
 baseUrl = 'http://localhost:8000'
 
 # Name of the netcdf file - experimental mask data in NetCDF4 format
-direc = 'D://DATA//'
+direc = '//home//user//repos//echo-stuffs//'
 filenames = [direc +
              'LSSS-label-versioning//' +
              'S2016837//ACOUSTIC//LSSS//' +
@@ -137,6 +137,15 @@ def getFiletime(dt):
 
 # get masks
 def get_masks(d, t, d_units, t_units, time_fixer, handle=None):
+    # Set zoom based on the time and depth from the data
+    url = baseUrl + '/lsss/module/PelagicEchogramModule/zoom'
+    min_time = min([min(r) for r in t])
+    max_time = max([max(r) for r in t])
+    min_dep = min([min(o) for r in d for o in r])
+    max_dep = max([max(o) for r in d for o in r])
+    zoom_req = [{"time":getFiletime(min_time).isoformat()+'Z', "z":str(min_dep)}, {"time":getFiletime(max_time).isoformat()+'Z', "z":str(max_dep)}]
+    post('/lsss/module/PelagicEchogramModule/zoom', json=zoom_req)
+
     # Get time and ping array from visible view on echogram
     url = baseUrl + '/lsss/module/PelagicEchogramModule/zoom'
     response = requests.get(url).json()
@@ -154,10 +163,27 @@ def get_masks(d, t, d_units, t_units, time_fixer, handle=None):
 
     for i, r in enumerate(d):
 
-        # Get the time variables
+        # Convert values array to list
+        points = [[min(x), max(x)] for x in r]
 
+        # Interpolate
+        from scipy.interpolate import interp1d
+        Tconv = [getFiletime(tt).timestamp() for tt in t[i]]
+        print(Tconv)
+        print("\n")
+        print(points)
+
+        # Still error, there are case when length x not equal y
+        f = interp1d(Tconv, points)
+
+        # Get time ranges bisection
+        from datetime import datetime
+        timestamps = np.asarray([datetime.fromisoformat(tt[:-1]).timestamp() for tt in T])
+        bisected = timestamps[(timestamps >= min(Tconv)) & (timestamps <= max(Tconv))]
+        vals = f(bisected)
         json_str = []
         # Yi: This part needs to be changed to add in missing time steps.
+
         for time, ranges in zip(t[i], r):
             min_max_vals = []
             # Ranges
@@ -169,14 +195,14 @@ def get_masks(d, t, d_units, t_units, time_fixer, handle=None):
                     handle.plot([time, time], [start, stop],
                                 linewidth=4, color='k')
 
-            json_str.append({"time": getFiletime(time).isoformat()+'Z',
+        for xx, vv in enumerate(bisected):
+            min_max_vals = []
+            min_max_vals.append({"min": min(vals[0]), "max": max(vals[1])})
+            json_str.append({"time": datetime.fromtimestamp(vv).isoformat()+'Z',
                              "depthRanges": min_max_vals})
 
-        import scipy.interpolate
-        #TP = scipy.interpolate.interp1d(T, P)
-        #PT = scipy.interpolate.interp1d(P, T)
-
         if json_str:
+            print(*json_str, sep="\n")
             post('/lsss/module/PelagicEchogramModule/school-mask',
                         json = json_str)
 
