@@ -164,23 +164,23 @@ def get_masks(d, t, d_units, t_units, time_fixer, handle=None):
     for i, r in enumerate(d):
 
         # Convert values array to list
-        points = [[min(x), max(x)] for x in r]
+        pointsmin = [min(x) for x in r]
+        pointsmax = [max(x) for x in r]
 
         # Interpolate
         from scipy.interpolate import interp1d
         Tconv = [getFiletime(tt).timestamp() for tt in t[i]]
-        print(Tconv)
-        print("\n")
-        print(points)
 
         # Still error, there are case when length x not equal y
-        f = interp1d(Tconv, points)
+        fmin = interp1d(Tconv, pointsmin)
+        fmax = interp1d(Tconv, pointsmax)
 
         # Get time ranges bisection
         from datetime import datetime
         timestamps = np.asarray([datetime.fromisoformat(tt[:-1]).timestamp() for tt in T])
         bisected = timestamps[(timestamps >= min(Tconv)) & (timestamps <= max(Tconv))]
-        vals = f(bisected)
+        vals_min = fmin(bisected)
+        vals_max = fmax(bisected)
         json_str = []
         # Yi: This part needs to be changed to add in missing time steps.
 
@@ -197,7 +197,7 @@ def get_masks(d, t, d_units, t_units, time_fixer, handle=None):
 
         for xx, vv in enumerate(bisected):
             min_max_vals = []
-            min_max_vals.append({"min": min(vals[0]), "max": max(vals[1])})
+            min_max_vals.append({"min": vals_min[xx], "max": vals_max[xx]})
             json_str.append({"time": datetime.fromtimestamp(vv).isoformat()+'Z',
                              "depthRanges": min_max_vals})
 
