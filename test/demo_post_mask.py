@@ -167,20 +167,24 @@ def get_masks(d, t, d_units, t_units, time_fixer, handle=None):
         pointsmin = [min(x) for x in r]
         pointsmax = [max(x) for x in r]
 
-        # Interpolate
-        from scipy.interpolate import interp1d
+        # Conver NT time to timestamps
         Tconv = [getFiletime(tt).timestamp() for tt in t[i]]
 
-        # Still error, there are case when length x not equal y
-        fmin = interp1d(Tconv, pointsmin)
-        fmax = interp1d(Tconv, pointsmax)
-
-        # Get time ranges bisection
+        # Get time ranges bisection (Requires Python 3.7+ for datetime.isoformat())
         from datetime import datetime
         timestamps = np.asarray([datetime.fromisoformat(tt[:-1]).timestamp() for tt in T])
-        bisected = timestamps[(timestamps >= min(Tconv)) & (timestamps <= max(Tconv))]
-        vals_min = fmin(bisected)
-        vals_max = fmax(bisected)
+        bisected = []
+        # Add time start
+        bisected.append(min(Tconv))
+        # Add bisection
+        bisected = bisected + (timestamps[(timestamps >= min(Tconv)) & (timestamps <= max(Tconv))]).tolist()
+        # Add time end
+        bisected.append(max(Tconv))
+
+        # Interpolate min and max
+        vals_min = np.interp(bisected, Tconv, pointsmin)
+        vals_max = np.interp(bisected, Tconv, pointsmax)
+
         json_str = []
         # Yi: This part needs to be changed to add in missing time steps.
 
@@ -195,6 +199,7 @@ def get_masks(d, t, d_units, t_units, time_fixer, handle=None):
                     handle.plot([time, time], [start, stop],
                                 linewidth=4, color='k')
 
+        # Append original + bisected (interpolated) time
         for xx, vv in enumerate(bisected):
             min_max_vals = []
             min_max_vals.append({"min": vals_min[xx], "max": vals_max[xx]})
