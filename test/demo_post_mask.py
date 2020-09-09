@@ -25,6 +25,7 @@ import requests
 import numpy as np
 # import scipy # converts polygon to ping-based formats
 # import math
+#from datetime import datetime
 
 converter = mdates.ConciseDateConverter()
 munits.registry[np.datetime64] = converter
@@ -37,11 +38,14 @@ munits.registry[datetime.datetime] = converter
 baseUrl = 'http://localhost:8000'
 
 # Name of the netcdf file - experimental mask data in NetCDF4 format
-direc = '//home//user//repos//echo-stuffs//'
+#direc = '//home//user//repos//echo-stuffs//'
+#direc = 'D:\\DATA\\'
+direc ='/mnt/d/DATA/'
+
 filenames = [direc +
              'LSSS-label-versioning//' +
              'S2016837//ACOUSTIC//LSSS//' +
-             'WORK//2016837-D20160503-T093515.nc']
+             'WORK//2016837-D20160427-T221032.nc']
 
 ''' 
 Function areas
@@ -60,69 +64,66 @@ def nc_reader(filename, is_save_png=True, is_show=False):
         # Get some variables and attributes
         t = interp['mask_times']
         d = interp['mask_depths']
+        d_units = 'm'  # str(interp['mask_depths'].attrs['units'], 'utf-8')
+        t_units = 's'  # str(interp['mask_times'].attrs['units'], 'utf-8')
+        #t_calendar = str(interp['mask_times'].attrs['calendar'], 'utf-8')
 
-        d_units = str(interp['mask_depths'].attrs['units'], 'utf-8')
+        #c = interp['sound_speed'][()]
+        #c_units = str(interp['sound_speed'].attrs['units'], 'utf-8')
 
-        t_units = str(interp['mask_times'].attrs['units'], 'utf-8')
-        t_calendar = str(interp['mask_times'].attrs['calendar'], 'utf-8')
-
-        c = interp['sound_speed'][()]
-        c_units = str(interp['sound_speed'].attrs['units'], 'utf-8')
-
-        bb_upper = interp['min_depth']
-        bb_lower = interp['max_depth']
-        bb_left = interp['start_time']
-        bb_right = interp['end_time']
-        region_id = interp['region_id']
+        #bb_upper = interp['min_depth']
+        #bb_lower = interp['max_depth']
+        #bb_left = interp['start_time']
+        #bb_right = interp['end_time']
+        #region_id = interp['region_id']
         # region_name = interp['region_name']
-        r_type = interp['region_type']
-        r_type_enum = h5py.check_dtype(enum=interp['region_type'].dtype)
+        #r_type = interp['region_type']
+        #r_type_enum = h5py.check_dtype(enum=interp['region_type'].dtype)
 
         # Convert region types into a text version
-        r_type_enum = dict(map(reversed, r_type_enum.items()))
-        r_type_name = [r_type_enum[i] for i in r_type]
+        #r_type_enum = dict(map(reversed, r_type_enum.items()))
+        #r_type_name = [r_type_enum[i] for i in r_type]
 
         # convert time variables into the form that matplotlib wants
         # current example .nc files actually have timestamps in 100 nanseconds since 1601.
         # But give the time units as milliseconds since 1601. Sort that out...
         time_fixer = 10000  # divide all times by this before using cftime.num2pydate()
 
-        cat_names = interp['region_category_names']
-        cat_prop = interp['region_category_proportions']
-        cat_ids = interp['region_category_ids']
+        #cat_names = interp['region_category_names']
+        #cat_prop = interp['region_category_proportions']
+        #cat_ids = interp['region_category_ids']
 
-        for i, r in enumerate(cat_names):
-            print('Region ' + str(cat_ids[i]) + ' has category '
-                  + '"' + cat_names[i] + '"'
-                  + ' with proportion ' + str(cat_prop[i]))
+        #for i, r in enumerate(cat_names):
+        #    print('Region ' + str(cat_ids[i]) + ' has category '
+        #          + '"' + cat_names[i] + '"'
+        #          + ' with proportion ' + str(cat_prop[i]))
 
         if is_show or is_save_png:
-            plt.figure()
-            plt.clf()
-
+            #plt.figure()
+            #plt.clf()
             get_masks(d, t, d_units, t_units, time_fixer, handle=plt)
-            get_region(region_id, bb_upper, bb_lower, bb_left, bb_right,
-                       r_type_name, time_fixer, handle=plt)
+            #get_region(region_id, bb_upper, bb_lower, bb_left, bb_right,
+            #           r_type_name, time_fixer, handle=plt)
 
             # Plot the power of beam
-            plt.title('Using c= ' + str(c) + ' ' + c_units)
-            ax = plt.gca()
-            ax.invert_yaxis()
+            #plt.title('Using c= ' + str(c) + ' ' + c_units)
+            #ax = plt.gca()
+            #ax.invert_yaxis()
 
-            plt.xlabel('Time\n(' + t_units + ')')
-            plt.ylabel('Depth (' + d_units + ')')
+            #plt.xlabel('Time\n(' + t_units + ')')
+            #plt.ylabel('Depth (' + d_units + ')')
 
-            if is_save_png:
+            #if is_save_png:
 
-                plt.savefig(os.path.splitext(filename)[0] +
-                            '.png', bbox_inches='tight')
+            #    plt.savefig(os.path.splitext(filename)[0] +
+            #                '.png', bbox_inches='tight')
 
-            if is_show:
-                plt.show()
+            #if is_show:
+            #    plt.show()
         else:
             get_masks(d, t, d_units, t_units, time_fixer, handle=None)
-            get_region(region_id, bb_upper, bb_lower, bb_left,
-                       bb_right, r_type_name, time_fixer, handle=None)
+            #get_region(region_id, bb_upper, bb_lower, bb_left,
+            #           bb_right, r_type_name, time_fixer, handle=None)
 
 
 def getFiletime(dt):
@@ -134,15 +135,15 @@ def getFiletime(dt):
         days, seconds, microseconds)
     return dtime
 
-
 # get masks
 def get_masks(d, t, d_units, t_units, time_fixer, handle=None):
     # Set zoom based on the time and depth from the data
     url = baseUrl + '/lsss/module/PelagicEchogramModule/zoom'
     min_time = min([min(r) for r in t])
     max_time = max([max(r) for r in t])
-    min_dep = min([min(o) for r in d for o in r])
-    max_dep = max([max(o) for r in d for o in r])
+    min_dep = min([min(r) for r in d])
+    max_dep = max([max(r) for r in d])
+
     zoom_req = [{"time":getFiletime(min_time).isoformat()+'Z', "z":str(min_dep)}, {"time":getFiletime(max_time).isoformat()+'Z', "z":str(max_dep)}]
     post('/lsss/module/PelagicEchogramModule/zoom', json=zoom_req)
 
@@ -157,57 +158,79 @@ def get_masks(d, t, d_units, t_units, time_fixer, handle=None):
     url = baseUrl + '/lsss/data/pings?pingNumber=' + str(t0)+'&pingCount=' + str(tint)
     # Get the list
     ping_time = requests.get(url).json()
-    # Get time and ping lists
+    # Get time and ping lists (for interpolating empty pings)
     T = [nilz['time'] for nilz in ping_time]
     P = [nilz['pingNumber'] for nilz in ping_time]
+    
+    # Loop over schools/annotations
+    for i, Rmask_all in enumerate(d):
+        # Convert mask times from NT time to timestamps
+        Tmask_all = [getFiletime(tt).timestamp() for tt in t[i]]
+        #pdb.set_trace()
+        # Restructure ranges to start-stop pairs by time
+        d_start = Rmask_all[0::2]
+        d_stop = Rmask_all[1::2]
+        
+        # Convert r values array to list
+        pointsmin = min(Rmask_all)
+        pointsmax = max(Rmask_all)
 
-    for i, r in enumerate(d):
+        # since the format may have multiple times, get the unique values for this school
+        Tmask = np.unique(Tmask_all)
 
-        # Convert values array to list
-        pointsmin = [min(x) for x in r]
-        pointsmax = [max(x) for x in r]
+        # Get the times where there are multiple range intervals for each time step
+        
+        diffs = ((np.diff(Tmask_all) == 0)*int(1))
+        indices = np.append(1,np.cumsum(diffs))
 
-        # Conver NT time to timestamps
-        Tconv = [getFiletime(tt).timestamp() for tt in t[i]]
+        diffinds = np.where(diffs)[0]
+        #nilz = r[diffinds]
 
-        # Get time ranges bisection (Requires Python 3.7+ for datetime.isoformat())
-        from datetime import datetime
-        timestamps = np.asarray([datetime.fromisoformat(tt[:-1]).timestamp() for tt in T])
-        bisected = []
+        # Convert raw data ping times to timestamps (Requires Python 3.7+ for datetime.isoformat())
+        Tping_all = np.asarray([datetime.datetime.fromisoformat(tt[:-1]).timestamp() for tt in T])
+        
+        Tping = []
         # Add time start
-        bisected.append(min(Tconv))
+        Tping.append(min(Tmask))
         # Add bisection
-        bisected = bisected + (timestamps[(timestamps >= min(Tconv)) & (timestamps <= max(Tconv))]).tolist()
+        Tping = Tping + (Tping_all[(Tping_all >= min(Tmask)) & (Tping_all <= max(Tmask))]).tolist()
         # Add time end
-        bisected.append(max(Tconv))
+        # Tping.append(max(Tmask))
 
         # Interpolate min and max
-        vals_min = np.interp(bisected, Tconv, pointsmin)
-        vals_max = np.interp(bisected, Tconv, pointsmax)
+        #vals_min = np.interp(Tping, Tmask, pointsmin)
+        #vals_max = np.interp(Tping, Tmask, pointsmax)
 
         json_str = []
         # Yi: This part needs to be changed to add in missing time steps.
 
-        for time, ranges in zip(t[i], r):
-            min_max_vals = []
-            # Ranges
-            # pdb.set_trace()
-            for start, stop in zip(ranges[0::2], ranges[1::2]):
-                min_max_vals.append({"min": float(start), "max": float(stop)})
+        #for time, ranges in zip(t[i], r):
+        #    min_max_vals = []
+        #    # Ranges
+        #    # pdb.set_trace()
+        #    for start, stop in zip(ranges[0::2], ranges[1::2]):
+        #        min_max_vals.append({"min": float(start), "max": float(stop)})
 
-                if handle:
-                    handle.plot([time, time], [start, stop],
-                                linewidth=4, color='k')
+        #        if handle:
+        #            handle.plot([time, time], [start, stop],
+        #                        linewidth=4, color='k')
 
         # Append original + bisected (interpolated) time
-        for xx, vv in enumerate(bisected):
-            min_max_vals = []
-            min_max_vals.append({"min": vals_min[xx], "max": vals_max[xx]})
-            json_str.append({"time": datetime.fromtimestamp(vv).isoformat()+'Z',
-                             "depthRanges": min_max_vals})
+        #for xx, vv in enumerate(bisected):
+        #    min_max_vals = []
+        #    min_max_vals.append({"min": vals_min[xx], "max": vals_max[xx]})
+        #    json_str.append({"time": datetime.fromtimestamp(vv).isoformat()+'Z',
+        #                     "depthRanges": min_max_vals})
 
+        # Generate the mask string
+        for xx, vv in enumerate(Tmask_all):
+            min_max_vals = []
+            min_max_vals.append({"min": d_start[xx], "max": d_stop[xx]})
+            json_str.append({"time": datetime.datetime.fromtimestamp(vv).isoformat()+'Z',
+                             "depthRanges": min_max_vals})
+        # Post the school into LSSS
         if json_str:
-            print(*json_str, sep="\n")
+            #print(*json_str, sep="\n")
             post('/lsss/module/PelagicEchogramModule/school-mask',
                         json = json_str)
 
@@ -272,3 +295,5 @@ if __name__ == "__main__":
     print('Files: ', filenames)
 
     nc_reader(filenames[0], is_save_png=False, is_show=True)
+
+ 
