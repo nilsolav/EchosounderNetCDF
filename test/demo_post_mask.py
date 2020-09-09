@@ -1,14 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-1) This work is based on the initial work that was created on
-   Tue Aug 20 11:44:06 2019 by gavinj that generates masks
-of 3 rectangles
-2) Debugging were furthered by nils olav in july 2020
-3) This work is then integrated with functions to post via
-   LSSS API by yi liu in july 2020
-"""
-
-# Gavin/Nillav - Read netcdf file
 import h5py
 import matplotlib.pyplot as plt
 # from pathlib import Path
@@ -19,7 +9,6 @@ import datetime
 import matplotlib.dates as mdates
 import matplotlib.units as munits
 import pdb
-# Yi - posting and integration
 import os
 import requests
 import numpy as np
@@ -27,17 +16,12 @@ import numpy as np
 # import math
 #from datetime import datetime
 
-converter = mdates.ConciseDateConverter()
-munits.registry[np.datetime64] = converter
-munits.registry[datetime.date] = converter
-munits.registry[datetime.datetime] = converter
-
 # Global variables, can be changed in docker
 
 # baseUrl : local host of LSSS
 baseUrl = 'http://localhost:8000'
 
-# Name of the netcdf file - experimental mask data in NetCDF4 format
+# Name of the netcdf file
 #direc = '//home//user//repos//echo-stuffs//'
 #direc = 'D:\\DATA\\'
 direc ='/mnt/d/DATA/'
@@ -47,20 +31,16 @@ filenames = [direc +
              'S2016837//ACOUSTIC//LSSS//' +
              'WORK//2016837-D20160427-T221032.nc']
 
-''' 
-Function areas
-nc_reader : function that reads masks along with the attributes from nc file
-post      : function that post the data (mask) onto LSSS given path and parameters
-'''
+# Run the shit
+post_nc_lsss(filenames[0])
 
 
-def nc_reader(filename, is_save_png=True, is_show=False):
+def post_nc_lsss(filename, is_save_png=True, is_show=False):
 
     with h5py.File(filename, 'r') as f:
 
         # Open the group where the data is located
         interp = f['Interpretation/v1']
-
         # Get some variables and attributes
         t = interp['mask_times']
         d = interp['mask_depths']
@@ -87,7 +67,7 @@ def nc_reader(filename, is_save_png=True, is_show=False):
         # convert time variables into the form that matplotlib wants
         # current example .nc files actually have timestamps in 100 nanseconds since 1601.
         # But give the time units as milliseconds since 1601. Sort that out...
-        time_fixer = 10000  # divide all times by this before using cftime.num2pydate()
+        #time_fixer = 10000  # divide all times by this before using cftime.num2pydate()
 
         #cat_names = interp['region_category_names']
         #cat_prop = interp['region_category_proportions']
@@ -98,33 +78,7 @@ def nc_reader(filename, is_save_png=True, is_show=False):
         #          + '"' + cat_names[i] + '"'
         #          + ' with proportion ' + str(cat_prop[i]))
 
-        if is_show or is_save_png:
-            #plt.figure()
-            #plt.clf()
-            get_masks(d, t, d_units, t_units, time_fixer, handle=plt)
-            #get_region(region_id, bb_upper, bb_lower, bb_left, bb_right,
-            #           r_type_name, time_fixer, handle=plt)
-
-            # Plot the power of beam
-            #plt.title('Using c= ' + str(c) + ' ' + c_units)
-            #ax = plt.gca()
-            #ax.invert_yaxis()
-
-            #plt.xlabel('Time\n(' + t_units + ')')
-            #plt.ylabel('Depth (' + d_units + ')')
-
-            #if is_save_png:
-
-            #    plt.savefig(os.path.splitext(filename)[0] +
-            #                '.png', bbox_inches='tight')
-
-            #if is_show:
-            #    plt.show()
-        else:
-            get_masks(d, t, d_units, t_units, time_fixer, handle=None)
-            #get_region(region_id, bb_upper, bb_lower, bb_left,
-            #           bb_right, r_type_name, time_fixer, handle=None)
-
+        get_masks(d, t, d_units, t_units, handle=plt)
 
 def getFiletime(dt):
     # Convert from windows NTtime to python time
@@ -136,7 +90,7 @@ def getFiletime(dt):
     return dtime
 
 # get masks
-def get_masks(d, t, d_units, t_units, time_fixer, handle=None):
+def get_masks(d, t, d_units, t_units, handle=None):
     # Set zoom based on the time and depth from the data
     url = baseUrl + '/lsss/module/PelagicEchogramModule/zoom'
     min_time = min([min(r) for r in t])
@@ -228,25 +182,12 @@ def get_masks(d, t, d_units, t_units, time_fixer, handle=None):
             min_max_vals.append({"min": d_start[xx], "max": d_stop[xx]})
             json_str.append({"time": datetime.datetime.fromtimestamp(vv).isoformat()+'Z',
                              "depthRanges": min_max_vals})
+        
         # Post the school into LSSS
         if json_str:
             #print(*json_str, sep="\n")
             post('/lsss/module/PelagicEchogramModule/school-mask',
                         json = json_str)
-
-# get region
-def get_region(region_id, bb_upper, bb_lower, bb_left, bb_right, r_type_name, time_fixer, handle = None):
-
-    for i, junk in enumerate(bb_upper):
-
-        if handle:
-            plt.plot([bb_left[i], bb_right[i], bb_right[i], bb_left[i], bb_left[i]],
-                     [bb_lower[i], bb_lower[i], bb_upper[i], bb_upper[i], bb_lower[i]],
-                     color=(0.5, 0.5, 0.5))
-
-            plt.text(bb_left[i], bb_upper[i], 'ID: ' + str(region_id[i])
-                    + ' (' + r_type_name[i] + ')',
-                     bbox=dict(facecolor=(0.5, 0.5, 0.5), alpha=0.5))
 
 
 def post(path, params=None, json=None, data=None):
@@ -295,5 +236,3 @@ if __name__ == "__main__":
     print('Files: ', filenames)
 
     nc_reader(filenames[0], is_save_png=False, is_show=True)
-
- 
