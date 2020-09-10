@@ -12,11 +12,6 @@ import pdb
 import os
 import requests
 import numpy as np
-# import scipy # converts polygon to ping-based formats
-# import math
-#from datetime import datetime
-
-# Global variables, can be changed in docker
 
 # baseUrl : local host of LSSS
 baseUrl = 'http://localhost:8000'
@@ -25,27 +20,22 @@ baseUrl = 'http://localhost:8000'
 #direc = '//home//user//repos//echo-stuffs//'
 #direc = 'D:\\DATA\\'
 direc ='/mnt/d/DATA/'
-
 filenames = [direc +
              'LSSS-label-versioning//' +
              'S2016837//ACOUSTIC//LSSS//' +
              'WORK//2016837-D20160427-T221032.nc']
 
-# Run the shit
-post_nc_lsss(filenames[0])
-
-
 def post_nc_lsss(filename, is_save_png=True, is_show=False):
 
     with h5py.File(filename, 'r') as f:
-
         # Open the group where the data is located
         interp = f['Interpretation/v1']
+        
         # Get some variables and attributes
         t = interp['mask_times']
         d = interp['mask_depths']
-        d_units = 'm'  # str(interp['mask_depths'].attrs['units'], 'utf-8')
-        t_units = 's'  # str(interp['mask_times'].attrs['units'], 'utf-8')
+        #d_units = 'm'  # str(interp['mask_depths'].attrs['units'], 'utf-8')
+        #t_units = 's'  # str(interp['mask_times'].attrs['units'], 'utf-8')
         #t_calendar = str(interp['mask_times'].attrs['calendar'], 'utf-8')
 
         #c = interp['sound_speed'][()]
@@ -77,8 +67,7 @@ def post_nc_lsss(filename, is_save_png=True, is_show=False):
         #    print('Region ' + str(cat_ids[i]) + ' has category '
         #          + '"' + cat_names[i] + '"'
         #          + ' with proportion ' + str(cat_prop[i]))
-
-        get_masks(d, t, d_units, t_units, handle=plt)
+        post_masks(d, t)
 
 def getFiletime(dt):
     # Convert from windows NTtime to python time
@@ -90,15 +79,15 @@ def getFiletime(dt):
     return dtime
 
 # get masks
-def get_masks(d, t, d_units, t_units, handle=None):
+def post_masks(d, t):
     # Set zoom based on the time and depth from the data
     url = baseUrl + '/lsss/module/PelagicEchogramModule/zoom'
     min_time = min([min(r) for r in t])
     max_time = max([max(r) for r in t])
     min_dep = min([min(r) for r in d])
     max_dep = max([max(r) for r in d])
-
-    zoom_req = [{"time":getFiletime(min_time).isoformat()+'Z', "z":str(min_dep)}, {"time":getFiletime(max_time).isoformat()+'Z', "z":str(max_dep)}]
+    zoom_req = [{"time":getFiletime(min_time).isoformat()+'Z',
+                 "z":str(min_dep)}, {"time":getFiletime(max_time).isoformat()+'Z', "z":str(max_dep)}]
     post('/lsss/module/PelagicEchogramModule/zoom', json=zoom_req)
 
     # Get time and ping array from visible view on echogram
@@ -110,77 +99,60 @@ def get_masks(d, t, d_units, t_units, handle=None):
     # Get the ping/time array for interpolation from region to LSSS shapes
     # Example http://localhost:8000/lsss/data/pings?pingNumber=10&pingCount=100
     url = baseUrl + '/lsss/data/pings?pingNumber=' + str(t0)+'&pingCount=' + str(tint)
+
     # Get the list
     ping_time = requests.get(url).json()
+
     # Get time and ping lists (for interpolating empty pings)
     T = [nilz['time'] for nilz in ping_time]
     P = [nilz['pingNumber'] for nilz in ping_time]
+
+    # Convert raw data ping times to timestamps (Requires Python 3.7+ for datetime.isoformat())
+    Tping_all = np.asarray([datetime.datetime.fromisoformat(tt[:-1]).timestamp() for tt in T])
+    Pping_all = np.asarray(P)
     
     # Loop over schools/annotations
     for i, Rmask_all in enumerate(d):
         # Convert mask times from NT time to timestamps
         Tmask_all = [getFiletime(tt).timestamp() for tt in t[i]]
-        #pdb.set_trace()
+        
         # Restructure ranges to start-stop pairs by time
-        d_start = Rmask_all[0::2]
-        d_stop = Rmask_all[1::2]
+        Rmask_all_start = Rmask_all[0::2]
+        Rmask_all_stop = Rmask_all[1::2]
         
-        # Convert r values array to list
-        pointsmin = min(Rmask_all)
-        pointsmax = max(Rmask_all)
-
-        # since the format may have multiple times, get the unique values for this school
+        # since the format allow duplciate time for each depth range,
+        # get the unique values for this school
         Tmask = np.unique(Tmask_all)
-
-        # Get the times where there are multiple range intervals for each time step
         
-        diffs = ((np.diff(Tmask_all) == 0)*int(1))
-        indices = np.append(1,np.cumsum(diffs))
-
-        diffinds = np.where(diffs)[0]
-        #nilz = r[diffinds]
-
-        # Convert raw data ping times to timestamps (Requires Python 3.7+ for datetime.isoformat())
-        Tping_all = np.asarray([datetime.datetime.fromisoformat(tt[:-1]).timestamp() for tt in T])
-        
+        # Find the time interval for this school
         Tping = []
-        # Add time start
         Tping.append(min(Tmask))
-        # Add bisection
         Tping = Tping + (Tping_all[(Tping_all >= min(Tmask)) & (Tping_all <= max(Tmask))]).tolist()
-        # Add time end
-        # Tping.append(max(Tmask))
 
-        # Interpolate min and max
-        #vals_min = np.interp(Tping, Tmask, pointsmin)
-        #vals_max = np.interp(Tping, Tmask, pointsmax)
-
+        # Fill the json string
         json_str = []
-        # Yi: This part needs to be changed to add in missing time steps.
-
-        #for time, ranges in zip(t[i], r):
-        #    min_max_vals = []
-        #    # Ranges
-        #    # pdb.set_trace()
-        #    for start, stop in zip(ranges[0::2], ranges[1::2]):
-        #        min_max_vals.append({"min": float(start), "max": float(stop)})
-
-        #        if handle:
-        #            handle.plot([time, time], [start, stop],
-        #                        linewidth=4, color='k')
-
-        # Append original + bisected (interpolated) time
-        #for xx, vv in enumerate(bisected):
-        #    min_max_vals = []
-        #    min_max_vals.append({"min": vals_min[xx], "max": vals_max[xx]})
-        #    json_str.append({"time": datetime.fromtimestamp(vv).isoformat()+'Z',
-        #                     "depthRanges": min_max_vals})
-
-        # Generate the mask string
-        for xx, vv in enumerate(Tmask_all):
+        # Generate the mask string, loop over time
+        for i, Tmask_i in enumerate(Tmask):
             min_max_vals = []
-            min_max_vals.append({"min": d_start[xx], "max": d_stop[xx]})
-            json_str.append({"time": datetime.datetime.fromtimestamp(vv).isoformat()+'Z',
+            # Loop over min max vals
+            ind = Tmask_all==Tmask_i
+            Rmask_i_start = Rmask_all_start[Tmask_all == Tmask_i]
+            Rmask_i_stop = Rmask_all_stop[Tmask_all == Tmask_i]
+            
+            # Test if Rmask_i is empty, and if yes, then interpolate and
+            # generate an interpolated Rmask_ii for this time step. this
+            # needs to look at the pro and pre ceding ping to map out any
+            # holes or gaps in the mask
+            if len(Rmask_i_start)==0:
+                print('Missing depth range for time step in the data. Must interpolate')
+                pdb.set_trace()
+
+            # Loop over the Rmask_i and add to json_str
+            for j, Rmask_ii_start in enumerate(Rmask_i_start):
+                min_max_vals.append({"min": Rmask_ii_start, "max": Rmask_i_stop[j]})
+
+            # Add time and range to json string
+            json_str.append({"time": datetime.datetime.fromtimestamp(Tmask_i).isoformat()+'Z',
                              "depthRanges": min_max_vals})
         
         # Post the school into LSSS
@@ -236,3 +208,6 @@ if __name__ == "__main__":
     print('Files: ', filenames)
 
     nc_reader(filenames[0], is_save_png=False, is_show=True)
+
+# Run the shit
+post_nc_lsss(filenames[0])
