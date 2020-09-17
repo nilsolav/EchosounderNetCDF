@@ -34,6 +34,7 @@ def post_nc_lsss(filename, is_save_png=True, is_show=False):
         # Get some variables and attributes
         t = interp['mask_times']
         d = interp['mask_depths']
+
         #d_units = 'm'  # str(interp['mask_depths'].attrs['units'], 'utf-8')
         #t_units = 's'  # str(interp['mask_times'].attrs['units'], 'utf-8')
         #t_calendar = str(interp['mask_times'].attrs['calendar'], 'utf-8')
@@ -138,7 +139,7 @@ def post_masks(d, t):
             ind = Tmask_all==Tmask_i
             Rmask_i_start = Rmask_all_start[Tmask_all == Tmask_i]
             Rmask_i_stop = Rmask_all_stop[Tmask_all == Tmask_i]
-            
+
             # Test if Rmask_i is empty, and if yes, then interpolate and
             # generate an interpolated Rmask_ii for this time step. this
             # needs to look at the pro and pre ceding ping to map out any
