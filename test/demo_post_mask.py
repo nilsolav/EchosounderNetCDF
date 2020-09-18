@@ -12,6 +12,7 @@ import pdb
 import os
 import requests
 import numpy as np
+import glob
 
 # baseUrl : local host of LSSS
 baseUrl = 'http://localhost:8000'
@@ -20,10 +21,13 @@ baseUrl = 'http://localhost:8000'
 #direc = '//home//user//repos//echo-stuffs//'
 #direc = 'D:\\DATA\\'
 direc ='/mnt/d/DATA/'
-filenames = [direc +
-             'LSSS-label-versioning//' +
-             'S2016837//ACOUSTIC//LSSS//' +
-             'WORK//2016837-D20160427-T221032.nc']
+#filenames = [direc +
+#             'LSSS-label-versioning//' +
+#             'S2016837//ACOUSTIC//LSSS//' +
+#             'WORK//2016837-D20160427-T221032.nc']
+dirname = [direc +
+'S2018823_PEROS_3317/ACOUSTIC/LSSS/WORK/*.nc']
+filenames=glob.glob(dirname[0])[100:-1]
 
 def post_nc_lsss(filename, is_save_png=True, is_show=False):
 
@@ -158,9 +162,24 @@ def post_masks(d, t):
         
         # Post the school into LSSS
         if json_str:
-            #print(*json_str, sep="\n")
+            # print(*json_str, sep="\n")
             post('/lsss/module/PelagicEchogramModule/school-mask',
-                        json = json_str)
+                 json = json_str)
+        # Get the channel id
+        # url2 = baseUrl + '/lsss/data/frequencies'
+        # sounder_info = requests.get(url2).json()
+        # freq = 38000.0
+        # channel_id = [j for j,i in enumerate(sounder_info) if i==freq]
+        # json_str2 = {'channels': [{'channelId': channel_id,
+        #                           'categories': [{'id': 27, 'initials': 'Sand eel', 'assignment': 1}]}]}
+        # region selection, få index
+        # /lsss/regions/selection
+        # loop
+        # sett kategori
+        
+        # pdb.set_trace()
+        # post('/lsss/module/InterpretationModule/scrutiny', json = json_str2)
+        # Example http://localhost:8000/lsss/module/InterpretationModule/scrutiny data/pings?pingNumber=10&pingCount=100
 
 
 def post(path, params=None, json=None, data=None):
@@ -211,4 +230,7 @@ if __name__ == "__main__":
     nc_reader(filenames[0], is_save_png=False, is_show=True)
 
 # Run the shit
-post_nc_lsss(filenames[0])
+# Set the channel ID
+# requests.post(baseUrl + '/lsss/data/frequency',json={'value':38000.0})
+for filename in filenames:
+    post_nc_lsss(filename)
