@@ -48,63 +48,74 @@ def getFiletime(dt):
 
 # get masks
 def post_masks(d, t):
-    # Loop over schools/annotations
+    # Loop over all schools/annotations
+    Tmask_all = np.array([])
+    Rmask_all_start = np.array([])
+    Rmask_all_stop = np.array([])
+
     for i, Rmask_all in enumerate(d):
         # Convert mask times from NT time to timestamps
-        Tmask_all = [getFiletime(tt).timestamp() for tt in t[i]]
+        Tmask_all = np.concatenate([Tmask_all, [getFiletime(tt).timestamp() for tt in t[i]]])
         
         # Restructure ranges to start-stop pairs by time
-        Rmask_all_start = Rmask_all[0::2]
-        Rmask_all_stop = Rmask_all[1::2]
+        Rmask_all_start = np.concatenate([Rmask_all_start, Rmask_all[0::2]])
+        Rmask_all_stop = np.concatenate([Rmask_all_stop, Rmask_all[1::2]])
         
-        # since the format allow duplciate time for each depth range,
-        # get the unique values for this school
-        Tmask = np.unique(Tmask_all)
-        
-        # Fill the json string
-        json_str = []
-        # Generate the mask string, loop over time
-        for i, Tmask_i in enumerate(Tmask):
-            min_max_vals = []
-            # Loop over min max vals
-            ind = Tmask_all==Tmask_i
-            Rmask_i_start = Rmask_all_start[ind]
-            Rmask_i_stop = Rmask_all_stop[ind]
 
-            # Test if Rmask_i is empty, and if yes, then interpolate and
-            # generate an interpolated Rmask_ii for this time step. this
-            # needs to look at the pro and pre ceding ping to map out any
-            # holes or gaps in the mask
-            if len(Rmask_i_start)==0:
-                print('Missing depth range for time step in the data. Must interpolate')
-                pdb.set_trace()
+    # since the format allow duplicate time for each depth range,
+    # get the unique values for this school
+    Tmask = np.unique(Tmask_all)
+    
+    # Fill the json string
+    json_str = []
+    # Generate the mask string, loop over time
+    for i, Tmask_i in enumerate(Tmask):
+        min_max_vals = []
+        # Loop over min max vals
+        ind = Tmask_all==Tmask_i
+        Rmask_i_start = Rmask_all_start[ind]
+        Rmask_i_stop = Rmask_all_stop[ind]
 
-            # Loop over the Rmask_i and add to json_str
-            for j, Rmask_ii_start in enumerate(Rmask_i_start):
-                min_max_vals.append({"min": Rmask_ii_start, "max": Rmask_i_stop[j]})
+        # Test if Rmask_i is empty, and if yes, then interpolate and
+        # generate an interpolated Rmask_ii for this time step. this
+        # needs to look at the pro and pre ceding ping to map out any
+        # holes or gaps in the mask
+        if len(Rmask_i_start)==0:
+            print('Missing depth range for time step in the data. Must interpolate')
+            pdb.set_trace()
 
-            # Add time and range to json string
-            json_str.append({"time": datetime.datetime.fromtimestamp(Tmask_i).isoformat()+'Z',
-                             "depthRanges": min_max_vals})
-        
-        # Post the school into LSSS
-        post('/lsss/module/PelagicEchogramModule/school-mask',
-             json = json_str, errorpass = True)
-        # Get the channel id
-        # url2 = baseUrl + '/lsss/data/frequencies'
-        # sounder_info = requests.get(url2).json()
-        # freq = 38000.0
-        # channel_id = [j for j,i in enumerate(sounder_info) if i==freq]
-        # json_str2 = {'channels': [{'channelId': channel_id,
-        #                           'categories': [{'id': 27, 'initials': 'Sand eel', 'assignment': 1}]}]}
-        # region selection, få index
-        # /lsss/regions/selection
-        # loop
-        # sett kategori
-        
-        # pdb.set_trace()
-        # post('/lsss/module/InterpretationModule/scrutiny', json = json_str2)
-        # Example http://localhost:8000/lsss/module/InterpretationModule/scrutiny data/pings?pingNumber=10&pingCount=100
+        # combine max min
+        combined_masks = np.array([(x, y) for x,y in zip(Rmask_i_start, Rmask_i_stop)])
+
+        # remove duplicates
+        cleaned_masks = np.unique(np.sort(combined_masks, axis=1).view(','.join([combined_masks.dtype.char]*2))).view(combined_masks.dtype).reshape(-1, 2)
+
+        # Loop over the Rmask_i and add to json_str
+        for min, max in cleaned_masks:
+            min_max_vals.append({"min": min, "max": max})
+
+        # Add time and range to json string
+        json_str.append({"time": datetime.datetime.fromtimestamp(Tmask_i).isoformat()+'Z',
+                         "depthRanges": min_max_vals})
+    
+    # Post the school into LSSS
+    post('/lsss/module/PelagicEchogramModule/school-mask',
+         json = json_str, errorpass = True)
+    # Get the channel id
+    # url2 = baseUrl + '/lsss/data/frequencies'
+    # sounder_info = requests.get(url2).json()
+    # freq = 38000.0
+    # channel_id = [j for j,i in enumerate(sounder_info) if i==freq]
+    # json_str2 = {'channels': [{'channelId': channel_id,
+    #                           'categories': [{'id': 27, 'initials': 'Sand eel', 'assignment': 1}]}]}
+    # region selection, få index
+    # /lsss/regions/selection
+    # loop
+    # sett kategori
+    
+    # pdb.set_trace()
+    # post('/lsss/module/InterpretationModule/scrutiny', json = json_str2)
+    # Example http://localhost:8000/lsss/module/InterpretationModule/scrutiny data/pings?pingNumber=10&pingCount=100
 
 
 def post(path, params=None, json=None, data=None, errorpass=False):
@@ -138,14 +149,14 @@ def post(path, params=None, json=None, data=None, errorpass=False):
 
     # Check the feedback from LSSS API
     if response.status_code == 200:
-        #print("PASS:")
-        #print(*json, sep="\n")
+        print("PASS:")
+        print(*json, sep="\n")
         return response.json()
     if response.status_code == 204:
         return None
 
-    #print("FAILS:")
-    #print(*json, sep="\n")
+    print("FAILS:")
+    print(*json, sep="\n")
     if errorpass == False:
         raise ValueError(url + ' returned status code ' + str(response.status_code) + ': ' + response.text)
     else:
