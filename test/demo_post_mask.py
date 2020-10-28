@@ -17,20 +17,15 @@ import glob
 # baseUrl : local host of LSSS
 baseUrl = 'http://localhost:8000'
 
-# Name of the netcdf file
-#direc = '//home//user//repos//echo-stuffs//'
-#direc = 'D:\\DATA\\'
-direc ='/home/user/repos/echo-stuffs/ncs'
-#filenames = [direc +
-#             'LSSS-label-versioning//' +
-#             'S2016837//ACOUSTIC//LSSS//' +
-#             'WORK//2016837-D20160427-T221032.nc']
-dirname = [direc + '/*.nc']
-filenames=sorted(glob.glob(dirname[0]))
+# Netcdf file selection
+cruiseNo = "2018823"
+baseDir ='/home/user/repos/echo-stuffs/ncs'
+dirname = baseDir + '/*' + cruiseNo + '*.nc'
+filenames=sorted(glob.glob(dirname))
 
 def post_nc_lsss(filename, is_save_png=True, is_show=False):
 
-    print(filename)
+    print("Now processing:" + filename)
     with h5py.File(filename, 'r') as f:
         # Check if we have the times and depths
         if(('Interpretation/v1/mask_times' in f and 'Interpretation/v1/mask_depths' in f)):
@@ -40,19 +35,20 @@ def post_nc_lsss(filename, is_save_png=True, is_show=False):
             d = f['Interpretation/v1/mask_depths']
 
             # Post it
-            post_masks(d, t)
+            post_masks(d, t, check_timestamps = False)
 
 def getFiletime(dt):
     # Convert from Windows NT FILETIME (nanoseconds from 1.1.1601) to Python date
     return (datetime.datetime(1601, 1, 1) + datetime.timedelta(microseconds=(dt / 10)))
 
 # get masks
-def post_masks(d, t):
+def post_masks(d, t, check_timestamps = False):
     # Loop over all schools/annotations
     Tmask_all = np.array([])
     Rmask_all_start = np.array([])
     Rmask_all_stop = np.array([])
 
+    # Combine all timemasks
     for i, Rmask_all in enumerate(d):
         # Convert mask times from NT time to timestamps
         Tmask_all = np.concatenate([Tmask_all, [getFiletime(tt).timestamp() for tt in t[i]]])
@@ -65,7 +61,23 @@ def post_masks(d, t):
     # since the format allow duplicate time for each depth range,
     # get the unique values for this school
     Tmask = np.unique(Tmask_all)
-    
+
+    # Remove invalid time points (time that has no corresponding pings??? Mostly because of zoom issue???)
+
+    if check_timestamps == True:
+        Tmask_valid = np.full(Tmask.size, False, dtype=np.bool)
+
+        for y, single_time in enumerate(Tmask):
+            r = requests.get(baseUrl + '/lsss/data/ping', params={"time":datetime.datetime.fromtimestamp(single_time).isoformat()+'Z'})
+            if r.status_code == 200:
+                Tmask_valid[y] = True
+            else:
+                Tmask_valid[y] = False
+
+        print("Invalid timestamps:", (Tmask.size - np.count_nonzero(Tmask_valid)))
+
+        Tmask = Tmask[Tmask_valid]
+
     # Fill the json string
     json_str = []
     # Generate the mask string, loop over time
@@ -75,6 +87,7 @@ def post_masks(d, t):
         ind = Tmask_all==Tmask_i
         Rmask_i_start = Rmask_all_start[ind]
         Rmask_i_stop = Rmask_all_stop[ind]
+
 
         # Test if Rmask_i is empty, and if yes, then interpolate and
         # generate an interpolated Rmask_ii for this time step. this
@@ -100,7 +113,7 @@ def post_masks(d, t):
     
     # Post the school into LSSS
     post('/lsss/module/PelagicEchogramModule/school-mask',
-         json = json_str, errorpass = True)
+         json = json_str, errorpass = True, verbose = True)
     # Get the channel id
     # url2 = baseUrl + '/lsss/data/frequencies'
     # sounder_info = requests.get(url2).json()
@@ -118,7 +131,7 @@ def post_masks(d, t):
     # Example http://localhost:8000/lsss/module/InterpretationModule/scrutiny data/pings?pingNumber=10&pingCount=100
 
 
-def post(path, params=None, json=None, data=None, errorpass=False):
+def post(path, params=None, json=None, data=None, errorpass=False, verbose=False):
     '''
     This is the basic function to post a mask/masks to LSSS via the API. Following
     is the parameters
@@ -146,35 +159,52 @@ def post(path, params=None, json=None, data=None, errorpass=False):
     # Connect to the server and post the content
     response = requests.post(url, params=params, json=json, data=data)
 
-
     # Check the feedback from LSSS API
     if response.status_code == 200:
-        print("PASS:")
-        print(*json, sep="\n")
         return response.json()
     if response.status_code == 204:
         return None
 
-    print("FAILS:")
-    print(*json, sep="\n")
+    # Print failures when verbose is True
+    if verbose == True:
+        print("FAILED POST:")
+        print(url, sep="\n")
+        print(*json, sep="\n")
+
+    # If user opts to continue despite error in POST
     if errorpass == False:
         raise ValueError(url + ' returned status code ' + str(response.status_code) + ': ' + response.text)
     else:
         return None
 
 if __name__ == "__main__":
-    # Batch check all nc files
-    # for i, f in enumerate(filenames):
-    #     # print(i, f, '\n')
-    #     nc_reader(f, is_save=False, is_show=False)
 
-    # Check individual nc file
-    print('Files: ', filenames)
-    print('File: ', filenames[0])
-    post_nc_lsss(filenames[0], is_save_png=False, is_show=True)
+    # Select all files, otherwise we will get mismatched pings
+    r = requests.get(baseUrl + '/lsss/survey/config/unit/DataConf/files')
+    if r.status_code == 200:
+        file_info = r.json()
+        post('/lsss/survey/config/unit/DataConf/files/selection',
+                                                                json = {
+                                                                  "firstIndex" : 0,
+                                                                  "lastIndex" : (len(file_info)-1)
+                                                                })
+    else:
+        print("Unable to select all available files!!!")
 
-# Run the shit
-# Set the channel ID
-# requests.post(baseUrl + '/lsss/data/frequency',json={'value':38000.0})
-for filename in filenames:
-    post_nc_lsss(filename)
+    # Set the channel ID
+    post('/lsss/data/frequency', json={'value':38000.0})
+
+    # Set maximum zoom
+    r = requests.get(baseUrl + '/lsss/module/PelagicEchogramModule/zoom/max')
+    if r.status_code == 200:
+        zoom_info = r.json()
+        post('/lsss/module/PelagicEchogramModule/zoom', json = [{'pingNumber': zoom_info[0]["pingNumber"]}, {'pingNumber':zoom_info[1]["pingNumber"]}])
+    else:
+        print("Unable to set zoom, may broke the posting sequence")
+
+    # Wait for all processing to finish
+    r = requests.get(baseUrl + '/lsss/data/wait')
+
+    # Now process all files
+    for filename in filenames:
+        post_nc_lsss(filename)
